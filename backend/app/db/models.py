@@ -8,27 +8,34 @@ class SecurityEvent(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    # "host" or "cloud"
-    source = Column(String(20), index=True)
+    # host / cloud / network
+    source = Column(String(20), index=True, nullable=False, default="unknown")
 
-    # e.g., "login_fail", "process_start", "iam_policy_change"
-    event_type = Column(String(50), index=True)
+    # e.g. win_login_failed, iam_policy_change, net_conn_blocked
+    event_type = Column(String(50), index=True, nullable=False, default="unknown")
 
-    # when the event happened
     timestamp = Column(DateTime, index=True, default=datetime.utcnow)
 
-    # who triggered it (user / role / account)
     actor = Column(String(120), nullable=True, index=True)
-
-    # ip address if applicable
     ip = Column(String(64), nullable=True)
-
-    # resource affected (file, bucket, instance, policy, etc.)
     resource = Column(String(200), nullable=True)
 
-    # ML / rules outputs
     anomaly_score = Column(Float, nullable=True)
-    severity = Column(String(20), nullable=True)  # low/medium/high
+    anomaly_score_svm = Column(Float, nullable=True)
+    anomaly_risk_10 = Column(Float, nullable=True)
+    anomaly_label = Column(String, nullable=True)
+    anomaly_label_svm = Column(String, nullable=True)
+    anomaly_model = Column(String, nullable=True)
+    anomaly_source_profile = Column(String, nullable=True)
 
-    # raw event as JSON string
+    # low / medium / high
+    severity = Column(String(20), nullable=True)
+
+    # short human "why"
+    severity_reason = Column(String(255), nullable=True)
+
+    # JSON text of triggered rules (list[str])
+    rules_triggered = Column(Text, nullable=True)
+
+    # raw payload JSON (string)
     raw = Column(Text, nullable=True)

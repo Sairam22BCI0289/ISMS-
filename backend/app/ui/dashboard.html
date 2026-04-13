@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ISMS Dashboard</title>
+
+  <style>
+    :root{
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+
+      --blue: #2563eb;
+      --green: #16a34a;
+      --amber: #f59e0b;
+      --red: #dc2626;
+
+      --rowHover: #f9fafb;
+    }
+
+    body{
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header{
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    header .title{
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    header h1{
+      margin: 0;
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: 0.2px;
+    }
+
+    header .subtitle{
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .badge{
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      background: #fff;
+      display:flex;
+      gap:6px;
+      align-items:center;
+    }
+
+    .badge.ok{
+      border-color: #bae6fd;
+      background: #ecfeff;
+      color: #0369a1;
+    }
+
+    main{ padding: 18px 22px; }
+
+    .grid{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 950px){
+      .grid{ grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+    }
+    @media (max-width: 520px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    .metric{
+      display:flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .metric .label{ font-size: 12px; color: var(--muted); }
+    .metric .value{ font-size: 22px; font-weight: 750; }
+
+    .controls{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    select, input{
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 14px;
+      outline: none;
+    }
+
+    button{
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: none;
+      background: var(--blue);
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button.secondary{
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    table{
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+      overflow: hidden;
+      border-radius: 14px;
+    }
+
+    thead th{
+      text-align: left;
+      padding: 10px 10px;
+      color: var(--muted);
+      font-weight: 650;
+      border-bottom: 1px solid var(--border);
+      background: #fbfbfd;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tbody td{
+      padding: 10px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      background: #fff;
+    }
+
+    tbody tr:hover td{
+      background: var(--rowHover);
+    }
+
+    .pill{
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      color: #fff;
+      font-weight: 750;
+      font-size: 12px;
+      letter-spacing: 0.3px;
+    }
+    .sev-low{ background: var(--green); }
+    .sev-medium{ background: var(--amber); }
+    .sev-high{ background: var(--red); }
+    .anomaly-normal{ background: var(--green); }
+    .anomaly-detected{ background: var(--red); }
+
+    .src-pill{
+      display:inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: #111827;
+      font-weight: 650;
+    }
+    .src-host{ border-color:#c7d2fe; background:#eef2ff; color:#3730a3; }
+    .src-cloud{ border-color:#bae6fd; background:#ecfeff; color:#0369a1; }
+    .src-network{ border-color:#bbf7d0; background:#ecfdf5; color:#065f46; }
+
+    details summary{ cursor:pointer; list-style:none; }
+    details summary::-webkit-details-marker{ display:none; }
+
+    .small{ font-size: 12px; color: var(--muted); }
+
+    .panel{
+      margin-top: 8px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fbfbfd;
+    }
+
+    /* Modal */
+    .backdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 50;
+    }
+    .modal{
+      width: min(980px, 95vw);
+      max-height: 90vh;
+      overflow: auto;
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      padding: 16px;
+    }
+    .modal-header{
+      display:flex;
+      justify-content: space-between;
+      align-items:center;
+      gap: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .modal-title{
+      display:flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .modal-title h2{
+      margin:0;
+      font-size: 16px;
+      font-weight: 750;
+    }
+    .close{
+      background: #fff;
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      color:#111827;
+    }
+    pre{
+      background: #0b0b0b;
+      color: #e6e6e6;
+      padding: 12px;
+      border-radius: 12px;
+      overflow:auto;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .cols{
+      display:flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .col{
+      flex: 1 1 360px;
+      min-width: 320px;
+    }
+    ul{ margin: 8px 0 0 18px; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="title">
+      <h1>ISMS Dashboard</h1>
+      <div class="subtitle">Host • Network • Cloud • Rule-based severity • UTC timestamps</div>
+    </div>
+    <div class="badge ok">Backend: <span id="backendStatus">checking…</span></div>
+  </header>
+
+  <main>
+    <div class="grid">
+      <div class="card metric">
+        <div class="label">Total shown</div>
+        <div class="value" id="mTotal">0</div>
+      </div>
+      <div class="card metric">
+        <div class="label">High</div>
+        <div class="value" id="mHigh">0</div>
+      </div>
+      <div class="card metric">
+        <div class="label">Medium</div>
+        <div class="value" id="mMed">0</div>
+      </div>
+      <div class="card metric">
+        <div class="label">Low</div>
+        <div class="value" id="mLow">0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="controls">
+        <select id="source">
+          <option value="">All sources</option>
+          <option value="host">Host</option>
+          <option value="network">Network</option>
+          <option value="cloud">Cloud</option>
+        </select>
+
+        <select id="severity">
+          <option value="">All severities</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+
+        <input id="search" placeholder="Search actor/event/resource…" size="28" />
+        <input id="limit" type="number" min="1" max="500" value="80" />
+
+        <button id="refreshBtn">Refresh</button>
+        <button id="toggleBtn" class="secondary">Pause</button>
+
+        <span class="small">Auto-refresh: <b id="refreshState">ON</b> • Tip: Click a row for full analysis</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:160px;">Time (UTC)</th>
+            <th style="width:120px;">Source</th>
+            <th>Event</th>
+            <th style="width:160px;">Actor</th>
+            <th style="width:140px;">IP</th>
+            <th>Resource</th>
+            <th style="width:140px;">Anomaly</th>
+            <th style="width:150px;">Severity</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="8" class="small">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Full analysis modal -->
+  <div id="backdrop" class="backdrop" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h2 id="mTitle">Event Analysis</h2>
+          <div class="small" id="mSubtitle"></div>
+        </div>
+        <button class="close" id="mClose">Close</button>
+      </div>
+
+      <div class="cols">
+        <div class="col">
+          <div class="card" style="box-shadow:none;">
+            <div><b>Severity</b>: <span id="mSeverity"></span></div>
+            <div style="margin-top:8px;"><b>Reason</b>:</div>
+            <div class="panel small" id="mReason">—</div>
+
+            <div style="margin-top:10px;"><b>Rules / signals triggered</b>:</div>
+            <div class="panel small" id="mRules">—</div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="card" style="box-shadow:none;">
+            <div><b>Recommended actions</b>:</div>
+            <div class="panel small" id="mActions">—</div>
+
+            <div style="margin-top:10px;"><b>Key fields</b>:</div>
+            <div class="panel small" id="mFields">—</div>
+
+            <div class="small" style="margin-top:10px;">
+              Next phase (Review-2): ML anomaly_score + correlation across time windows.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <b>Raw event (JSON)</b>
+        <pre id="mRaw">{}</pre>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let autoRefresh = true;
+  let timer = null;
+  let lastData = [];
+
+  // Lightweight "playbook" actions for better demo (rule-based, not ML)
+  function recommendedActions(evt){
+    const src = (evt.source || "").toLowerCase();
+    const et = (evt.event_type || "");
+    const sev = (evt.severity || "").toLowerCase();
+
+    const actions = [];
+
+    if (src === "host") {
+      if (et === "win_login_failed") {
+        actions.push("Check if the user mistyped password vs brute-force attempt");
+        actions.push("If repeated, enforce MFA / lockout policy");
+        actions.push("Review nearby authentication events (success/failure) and admin privileges");
+      } else if (et === "win_event_4672") {
+        actions.push("Confirm if this privileged activity is expected (SYSTEM/service/admin)");
+        actions.push("Correlate with logon events (4624/4634) and process creation if available");
+      } else {
+        actions.push("Correlate with other host events in last 5–10 minutes");
+      }
+    }
+
+    if (src === "network") {
+      if (et === "net_conn_high_risk") {
+        actions.push("Check destination IP/port and whether it is business-required");
+        actions.push("Look for repeated attempts to the same high-risk service");
+        actions.push("If high-risk port, confirm service exposure and harden firewall policy");
+      } else if (et === "net_listener_open") {
+        actions.push("Confirm the listening port is expected for this machine");
+        actions.push("Review the owning process and whether the service should be reachable");
+      } else {
+        actions.push("Generally informational; investigate if the destination or process looks unusual");
+      }
+    }
+
+    if (src === "cloud") {
+      if (["cloud_policy_change","cloud_network_change","cloud_key_management"].includes(et)) {
+        actions.push("Verify approval/change request and actor identity");
+        actions.push("Rollback/contain if unauthorized");
+        actions.push("Audit access logs around the event time");
+      } else if (["cloud_auth_failed","cloud_role_assumption","cloud_identity_activity"].includes(et)) {
+        actions.push("Confirm the actor, source IP, and whether the identity activity was expected");
+        actions.push("Check surrounding authentication and privilege-change events");
+      } else {
+        actions.push("Correlate with auth failures, new locations, and access pattern changes");
+      }
+    }
+
+    if (!actions.length) actions.push("No action required (informational).");
+
+    if (sev === "high") actions.unshift("Treat as urgent: validate quickly and contain if needed.");
+    return actions;
+  }
+
+  function rulesTriggered(evt){
+    // If backend stores a reason, use it as the main rule evidence
+    const reason = evt.severity_reason || "";
+    const rules = [];
+    if (reason) rules.push(reason);
+
+    // Add small extra signals from raw if present (esp. network)
+    try{
+      const raw = parseRaw(evt.raw);
+      if (raw && raw.high_risk_port === true) rules.push("NETWORK_SIGNAL: high_risk_port=true");
+      if (raw && raw.action) rules.push(`NETWORK_SIGNAL: action=${raw.action}`);
+    } catch {}
+    return rules.length ? rules : ["Rule reason not stored yet (OK)."];
+  }
+
+  function parseRaw(raw){
+    if (!raw) return null;
+    if (typeof raw === "object") return raw;
+    // raw might be JSON string
+    try { return JSON.parse(raw); } catch { return { raw_string: String(raw) }; }
+  }
+
+  function srcPill(src){
+    const s = (src||"").toLowerCase();
+    if(s === "host") return `<span class="src-pill src-host">HOST</span>`;
+    if(s === "cloud") return `<span class="src-pill src-cloud">CLOUD</span>`;
+    if(s === "network") return `<span class="src-pill src-network">NETWORK</span>`;
+    return `<span class="src-pill">UNKNOWN</span>`;
+  }
+
+  function sevPill(sev){
+    const s = (sev||"").toLowerCase();
+    if(s === "high") return `<span class="pill sev-high">HIGH</span>`;
+    if(s === "medium") return `<span class="pill sev-medium">MEDIUM</span>`;
+    if(s === "low") return `<span class="pill sev-low">LOW</span>`;
+    return `<span class="pill" style="background:#9ca3af;">—</span>`;
+  }
+
+  function anomalyPill(label){
+    const s = (label||"").toLowerCase();
+    if(s === "anomalous") return `<span class="pill anomaly-detected">ANOMALY</span>`;
+    if(s === "normal") return `<span class="pill anomaly-normal">NORMAL</span>`;
+    return `<span class="small">—</span>`;
+  }
+
+  async function checkHealth(){
+    try{
+      const r = await fetch("/health");
+      const j = await r.json();
+      document.getElementById("backendStatus").textContent = j.status || "ok";
+    } catch {
+      document.getElementById("backendStatus").textContent = "offline";
+    }
+  }
+
+  function buildQuery(){
+    const source = document.getElementById("source").value.trim();
+    const severity = document.getElementById("severity").value.trim();
+    const search = document.getElementById("search").value.trim();
+    const limit = document.getElementById("limit").value || "80";
+
+    const params = new URLSearchParams();
+    params.set("limit", limit);
+    if(source) params.set("source", source);
+    if(severity) params.set("severity", severity);
+    if(search) params.set("q", search);
+    return "/events?" + params.toString();
+  }
+
+  function updateMetrics(events){
+    let hi=0, med=0, lo=0;
+    for(const e of events){
+      const s = (e.severity||"").toLowerCase();
+      if(s==="high") hi++;
+      else if(s==="medium") med++;
+      else if(s==="low") lo++;
+    }
+    document.getElementById("mTotal").textContent = events.length;
+    document.getElementById("mHigh").textContent = hi;
+    document.getElementById("mMed").textContent = med;
+    document.getElementById("mLow").textContent = lo;
+  }
+
+  function renderSeverityDropdown(e){
+    const reason = e.severity_reason || "Reason not stored yet (OK for now).";
+    return `
+      <details>
+        <summary>${sevPill(e.severity)}</summary>
+        <div class="panel">
+          <div class="small"><b>Reason:</b> ${reason}</div>
+          <div class="small" style="margin-top:6px;">Click the row for full analysis (actions + raw).</div>
+        </div>
+      </details>
+    `;
+  }
+
+  function openModal(e){
+    const ts = (e.timestamp || "").replace("T"," ").slice(0,19);
+    document.getElementById("mTitle").textContent = `Event #${e.id} • ${e.source || ""} • ${e.event_type || ""}`;
+    document.getElementById("mSubtitle").textContent = `${ts} UTC`;
+
+    document.getElementById("mSeverity").innerHTML = sevPill(e.severity);
+
+    const reason = e.severity_reason || "Reason not stored yet (OK).";
+    document.getElementById("mReason").textContent = reason;
+
+    const rules = rulesTriggered(e);
+    document.getElementById("mRules").innerHTML = `<ul>${rules.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ul>`;
+
+    const acts = recommendedActions(e);
+    document.getElementById("mActions").innerHTML = `<ul>${acts.map(a => `<li>${escapeHtml(a)}</li>`).join("")}</ul>`;
+
+    const rawObj = parseRaw(e.raw);
+    const rawPretty = JSON.stringify(rawObj ?? e, null, 2);
+    document.getElementById("mRaw").textContent = rawPretty;
+
+    document.getElementById("mFields").innerHTML = `
+      <ul>
+        <li><b>Actor:</b> ${escapeHtml(e.actor || "—")}</li>
+        <li><b>IP:</b> ${escapeHtml(e.ip || "—")}</li>
+        <li><b>Resource:</b> ${escapeHtml(e.resource || "—")}</li>
+        <li><b>Anomaly label:</b> ${escapeHtml(e.anomaly_label || "—")}</li>
+        <li><b>Anomaly risk:</b> ${escapeHtml(e.anomaly_risk_10 == null ? "—" : `${e.anomaly_risk_10} / 10`)}</li>
+        <li><b>Anomaly model:</b> ${escapeHtml(e.anomaly_model || "—")}</li>
+        <li><b>SVM anomaly label:</b> ${escapeHtml(e.anomaly_label_svm || "—")}</li>
+        <li><b>SVM anomaly score:</b> ${escapeHtml(e.anomaly_score_svm == null ? "—" : e.anomaly_score_svm)}</li>
+      </ul>
+    `;
+
+    document.getElementById("backdrop").style.display = "flex";
+  }
+
+  function closeModal(){
+    document.getElementById("backdrop").style.display = "none";
+  }
+
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  document.getElementById("mClose").addEventListener("click", closeModal);
+  document.getElementById("backdrop").addEventListener("click", (ev) => {
+    if(ev.target.id === "backdrop") closeModal();
+  });
+
+  async function loadEvents(){
+    const tbody = document.getElementById("rows");
+    try{
+      const r = await fetch(buildQuery());
+      const data = await r.json();
+      lastData = data;
+
+      updateMetrics(data);
+
+      if(!data.length){
+        tbody.innerHTML = `<tr><td colspan="8" class="small">No events found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = data.map(e => `
+        <tr data-id="${e.id}">
+          <td class="small">${(e.timestamp || "").replace("T"," ").slice(0,19)}</td>
+          <td>${srcPill(e.source)}</td>
+          <td>${escapeHtml(e.event_type || "")}</td>
+          <td>${escapeHtml(e.actor || "—")}</td>
+          <td class="small">${escapeHtml(e.ip || "—")}</td>
+          <td>${escapeHtml(e.resource || "—")}</td>
+          <td>${anomalyPill(e.anomaly_label)}</td>
+          <td>${renderSeverityDropdown(e)}</td>
+        </tr>
+      `).join("");
+
+      // Row click -> open modal, but ignore clicks inside the <details> (dropdown)
+      tbody.querySelectorAll("tr[data-id]").forEach(tr => {
+        tr.addEventListener("click", (ev) => {
+          if (ev.target.closest && ev.target.closest("details")) return;
+          const id = tr.getAttribute("data-id");
+          const e = lastData.find(x => String(x.id) === String(id));
+          if (e) openModal(e);
+        });
+      });
+
+    } catch(err){
+      tbody.innerHTML = `<tr><td colspan="8" class="small" style="color:#b91c1c;font-weight:700;">
+        Failed to load events. Is the backend running?
+      </td></tr>`;
+    }
+  }
+
+  function startTimer(){
+    clearInterval(timer);
+    timer = setInterval(() => { if(autoRefresh) loadEvents(); }, 3000);
+  }
+
+  document.getElementById("refreshBtn").addEventListener("click", loadEvents);
+  document.getElementById("toggleBtn").addEventListener("click", () => {
+    autoRefresh = !autoRefresh;
+    document.getElementById("refreshState").textContent = autoRefresh ? "ON" : "OFF";
+    document.getElementById("toggleBtn").textContent = autoRefresh ? "Pause" : "Resume";
+    if(autoRefresh) loadEvents();
+  });
+
+  ["source","severity"].forEach(id => document.getElementById(id).addEventListener("change", loadEvents));
+  document.getElementById("search").addEventListener("input", () => {
+    clearTimeout(window.__t);
+    window.__t = setTimeout(loadEvents, 300);
+  });
+
+  checkHealth();
+  loadEvents();
+  startTimer();
+</script>
+</body>
+</html>

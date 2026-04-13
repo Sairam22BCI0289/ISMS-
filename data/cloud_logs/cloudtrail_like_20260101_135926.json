@@ -1,0 +1,322 @@
+[
+  {
+    "source": "cloud",
+    "event_type": "login_fail",
+    "actor": "ops",
+    "ip": "203.0.113.10",
+    "resource": "iam/user/new-user",
+    "timestamp": "2026-01-01T11:59:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "normal_activity",
+    "actor": "dev-user",
+    "ip": "192.0.2.44",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:01:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "new_location_login",
+    "actor": "intern",
+    "ip": "172.16.1.9",
+    "resource": "s3://project-logs-bucket",
+    "timestamp": "2026-01-01T12:03:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "bucket_public_enabled",
+    "actor": "admin",
+    "ip": "192.0.2.44",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:05:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "bucket_public_enabled",
+    "actor": "intern",
+    "ip": "198.51.100.22",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:07:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "security_group_open_all",
+    "actor": "admin",
+    "ip": "192.0.2.44",
+    "resource": "s3://project-logs-bucket",
+    "timestamp": "2026-01-01T12:14:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "iam_user_created",
+    "actor": "intern",
+    "ip": "198.51.100.22",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:05:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "login_fail",
+    "actor": "auditor",
+    "ip": "172.16.1.9",
+    "resource": "iam/user/new-user",
+    "timestamp": "2026-01-01T12:06:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "iam_policy_change",
+    "actor": "ops",
+    "ip": "198.51.100.22",
+    "resource": "s3://project-logs-bucket",
+    "timestamp": "2026-01-01T12:07:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "login_fail",
+    "actor": "admin",
+    "ip": "10.0.0.15",
+    "resource": "console-login",
+    "timestamp": "2026-01-01T12:08:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "normal_activity",
+    "actor": "admin",
+    "ip": "172.16.1.9",
+    "resource": "iam/user/new-user",
+    "timestamp": "2026-01-01T12:29:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "security_group_open_all",
+    "actor": "auditor",
+    "ip": "172.16.1.9",
+    "resource": "policy/AllowAll",
+    "timestamp": "2026-01-01T12:10:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "bucket_public_enabled",
+    "actor": "dev-user",
+    "ip": "203.0.113.10",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:23:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "login_fail",
+    "actor": "intern",
+    "ip": "192.0.2.44",
+    "resource": "console-login",
+    "timestamp": "2026-01-01T12:25:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "new_location_login",
+    "actor": "intern",
+    "ip": "203.0.113.10",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:41:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "login_fail",
+    "actor": "dev-user",
+    "ip": "203.0.113.10",
+    "resource": "s3://project-logs-bucket",
+    "timestamp": "2026-01-01T12:44:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "new_location_login",
+    "actor": "auditor",
+    "ip": "198.51.100.22",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:31:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "normal_activity",
+    "actor": "ops",
+    "ip": "172.16.1.9",
+    "resource": "s3://project-logs-bucket",
+    "timestamp": "2026-01-01T12:16:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "bucket_public_enabled",
+    "actor": "auditor",
+    "ip": "203.0.113.10",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:53:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "security_group_open_all",
+    "actor": "ops",
+    "ip": "192.0.2.44",
+    "resource": "iam/user/new-user",
+    "timestamp": "2026-01-01T12:56:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "bucket_public_enabled",
+    "actor": "auditor",
+    "ip": "10.0.0.15",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:59:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "normal_activity",
+    "actor": "auditor",
+    "ip": "203.0.113.10",
+    "resource": "policy/AllowAll",
+    "timestamp": "2026-01-01T12:41:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "normal_activity",
+    "actor": "dev-user",
+    "ip": "198.51.100.22",
+    "resource": "iam/user/new-user",
+    "timestamp": "2026-01-01T12:43:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "security_group_open_all",
+    "actor": "admin",
+    "ip": "172.16.1.9",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:22:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "iam_policy_change",
+    "actor": "ops",
+    "ip": "198.51.100.22",
+    "resource": "policy/AllowAll",
+    "timestamp": "2026-01-01T12:23:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "iam_user_created",
+    "actor": "intern",
+    "ip": "10.0.0.15",
+    "resource": "iam/user/new-user",
+    "timestamp": "2026-01-01T12:49:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "security_group_open_all",
+    "actor": "auditor",
+    "ip": "203.0.113.10",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:51:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "login_fail",
+    "actor": "intern",
+    "ip": "172.16.1.9",
+    "resource": "iam/user/new-user",
+    "timestamp": "2026-01-01T12:26:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "login_fail",
+    "actor": "admin",
+    "ip": "172.16.1.9",
+    "resource": "console-login",
+    "timestamp": "2026-01-01T12:55:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "iam_policy_change",
+    "actor": "auditor",
+    "ip": "10.0.0.15",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T12:28:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "security_group_open_all",
+    "actor": "ops",
+    "ip": "10.0.0.15",
+    "resource": "policy/AllowAll",
+    "timestamp": "2026-01-01T12:59:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "normal_activity",
+    "actor": "intern",
+    "ip": "172.16.1.9",
+    "resource": "sg-0000openall",
+    "timestamp": "2026-01-01T13:01:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "security_group_open_all",
+    "actor": "intern",
+    "ip": "203.0.113.10",
+    "resource": "policy/AllowAll",
+    "timestamp": "2026-01-01T13:35:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "iam_policy_change",
+    "actor": "admin",
+    "ip": "198.51.100.22",
+    "resource": "s3://project-logs-bucket",
+    "timestamp": "2026-01-01T12:32:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "security_group_open_all",
+    "actor": "admin",
+    "ip": "203.0.113.10",
+    "resource": "iam/user/new-user",
+    "timestamp": "2026-01-01T12:33:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "security_group_open_all",
+    "actor": "intern",
+    "ip": "192.0.2.44",
+    "resource": "console-login",
+    "timestamp": "2026-01-01T12:34:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "new_location_login",
+    "actor": "admin",
+    "ip": "192.0.2.44",
+    "resource": "console-login",
+    "timestamp": "2026-01-01T13:11:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "iam_user_created",
+    "actor": "auditor",
+    "ip": "192.0.2.44",
+    "resource": "console-login",
+    "timestamp": "2026-01-01T12:36:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "iam_policy_change",
+    "actor": "intern",
+    "ip": "10.0.0.15",
+    "resource": "s3://project-logs-bucket",
+    "timestamp": "2026-01-01T12:37:26.525312Z"
+  },
+  {
+    "source": "cloud",
+    "event_type": "security_group_open_all",
+    "actor": "auditor",
+    "ip": "172.16.1.9",
+    "resource": "s3://project-logs-bucket",
+    "timestamp": "2026-01-01T12:38:26.525312Z"
+  }
+]

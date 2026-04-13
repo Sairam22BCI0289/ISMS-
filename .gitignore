@@ -4,3 +4,8 @@ __pycache__/
 .env
 *.db
 .vscode/
+backend/_runtime_logs/
+backend/_codex_backups/
+backend/data/public_datasets/
+backend/data/cloud_logs/*state.json
+backend/data/host_logs/*state.json
