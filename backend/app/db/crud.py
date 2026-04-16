@@ -214,9 +214,11 @@ def create_event(db: Session, event: dict):
     anomaly_result = score_event({
         "source": event.get("source"),
         "event_type": event.get("event_type"),
+        "timestamp": event.get("timestamp"),
         "actor": event.get("actor"),
         "ip": event.get("ip"),
         "resource": event.get("resource"),
+        "raw": raw_str,
     })
 
     obj = SecurityEvent(
@@ -230,6 +232,11 @@ def create_event(db: Session, event: dict):
         anomaly_score=anomaly_result["anomaly_score"],
         anomaly_score_svm=anomaly_result["anomaly_score_svm"],
         anomaly_risk_10=anomaly_result["anomaly_risk_10"],
+        anomaly_risk_10_svm=anomaly_result["anomaly_risk_10_svm"],
+        host_auth_risk=anomaly_result.get("host_auth_risk"),
+        host_behavior_risk=anomaly_result.get("host_behavior_risk"),
+        host_multilayer_risk=anomaly_result.get("host_multilayer_risk"),
+        network_multilayer_risk=anomaly_result.get("network_multilayer_risk"),
         anomaly_label=anomaly_result["anomaly_label"],
         anomaly_label_svm=anomaly_result["anomaly_label_svm"],
         anomaly_model=anomaly_result["anomaly_model"],

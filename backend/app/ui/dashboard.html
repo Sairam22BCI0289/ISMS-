@@ -553,6 +553,233 @@
     `;
   }
 
+  function hasDetailValue(v){
+    return v !== null && v !== undefined && v !== "";
+  }
+
+  function detailRow(label, value){
+    return `<li><b>${escapeHtml(label)}:</b> ${escapeHtml(hasDetailValue(value) ? value : "-")}</li>`;
+  }
+
+  function riskText(value){
+    return value == null ? null : `${value} / 10`;
+  }
+
+  function primaryRiskText(e){
+    const isHost = (e.source || "").toLowerCase() === "host";
+    if(isHost) return riskText(e.host_multilayer_risk);
+    return riskText(e.network_multilayer_risk ?? e.anomaly_risk_10);
+  }
+
+  function anomalySummary(e){
+    const risk = primaryRiskText(e);
+    const source = (e.source || "").toLowerCase();
+    const riskLabel = source === "host" ? "Host risk" : source === "network" ? "Network risk" : "Risk";
+    const riskHtml = risk == null
+      ? `<div class="small">${riskLabel}: -</div>`
+      : `<div class="small"><b>${riskLabel}:</b> ${escapeHtml(risk)}</div>`;
+    return `${anomalyPill(e.anomaly_label)}${riskHtml}`;
+  }
+
+  function numberValue(value){
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function rawField(raw, keys){
+    if(!raw || typeof raw !== "object") return null;
+    const lowerKeys = keys.map(k => k.toLowerCase());
+    for(const [key, value] of Object.entries(raw)){
+      if(lowerKeys.includes(String(key).toLowerCase())) return value;
+    }
+    return null;
+  }
+
+  function eventId(e){
+    const raw = parseRaw(e.raw);
+    const rawId = rawField(raw, ["event_id", "EventID", "eventID"]);
+    if(rawId != null && rawId !== "") {
+      const parsed = Number.parseInt(rawId, 10);
+      if(Number.isFinite(parsed)) return parsed;
+    }
+
+    const et = String(e.event_type || "").toLowerCase();
+    if(et === "win_login_success") return 4624;
+    if(et === "win_login_failed") return 4625;
+    if(et.startsWith("win_event_")){
+      const parsed = Number.parseInt(et.replace("win_event_", ""), 10);
+      if(Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+  }
+
+  function eventMeaning(e){
+    const src = String(e.source || "").toLowerCase();
+    const et = String(e.event_type || "").toLowerCase();
+    const raw = parseRaw(e.raw);
+    const id = eventId(e);
+    const processName = rawField(raw, ["process_name", "ProcessName", "NewProcessName", "Image"]);
+    const logonType = rawField(raw, ["logon_type", "LogonType"]);
+    const action = rawField(raw, ["action", "Action"]);
+    const port = rawField(raw, ["dest_port", "destination_port", "DestinationPort", "remote_port", "RemotePort"]);
+
+    const windowsMeanings = {
+      4624: "Windows Event 4624 means a successful logon was recorded.",
+      4625: "Windows Event 4625 means a failed logon attempt was recorded.",
+      4648: "Windows Event 4648 means a logon used explicit credentials.",
+      4672: "Windows Event 4672 means a privileged logon occurred and special rights were assigned.",
+      4688: "Windows Event 4688 means a new process was created.",
+      4656: "Windows Event 4656 means a process requested access to an object.",
+      4663: "Windows Event 4663 means an object access attempt was recorded.",
+      5156: "Windows Event 5156 means Windows Filtering Platform allowed a network connection."
+    };
+
+    if(id && windowsMeanings[id]){
+      const details = [];
+      if(processName) details.push(`Process: ${processName}`);
+      if(logonType) details.push(`Logon type: ${logonType}`);
+      if(port) details.push(`Port: ${port}`);
+      return details.length ? `${windowsMeanings[id]} ${details.join("; ")}.` : windowsMeanings[id];
+    }
+
+    if(src === "network"){
+      if(et === "net_conn_high_risk") return "This network event represents a connection involving a high-risk or administrative remote port.";
+      if(et === "net_listener_open") return "This network event means a local process is listening for inbound connections.";
+      if(et === "net_conn_allowed") return `This network event means a connection was allowed${action ? ` with action ${action}` : ""}.`;
+      if(et === "net_conn_blocked") return `This network event means a connection was blocked${action ? ` with action ${action}` : ""}.`;
+    }
+
+    if(src === "host") return "This host event records Windows activity from the endpoint audit stream.";
+    return "This event was ingested into ISMS and evaluated by the available rule and ML logic.";
+  }
+
+  function hostFusionWeights(e, authRisk, behaviorRisk){
+    const id = eventId(e);
+    const et = String(e.event_type || "").toLowerCase();
+    const isBehaviorEvent = [4688, 4656, 4663, 10, 5156].includes(id);
+    const isAuthEvent = [4624, 4625, 4648, 4672].includes(id)
+      || et === "win_login_success"
+      || et === "win_login_failed";
+
+    if(id === 4672) return [0.8, 0.2];
+    if(isBehaviorEvent && behaviorRisk != null && authRisk != null && behaviorRisk >= 8.0 && behaviorRisk > authRisk) {
+      return [0.45, 0.55];
+    }
+    if(isAuthEvent && authRisk != null && behaviorRisk != null && authRisk >= 8.0 && authRisk > behaviorRisk) {
+      return [0.8, 0.2];
+    }
+    return [0.7, 0.3];
+  }
+
+  function hostMlReasoning(e){
+    const profile = String(e.anomaly_source_profile || "").toLowerCase();
+    let authRisk = numberValue(e.host_auth_risk);
+    let behaviorRisk = numberValue(e.host_behavior_risk);
+    const layerRisk = numberValue(e.anomaly_risk_10);
+
+    if(authRisk == null && profile === "host_auth") authRisk = layerRisk;
+    if(behaviorRisk == null && profile === "host_behavior") behaviorRisk = layerRisk;
+
+    const [authWeight, behaviorWeight] = hostFusionWeights(e, authRisk, behaviorRisk);
+    const finalRisk = numberValue(e.host_multilayer_risk);
+    const model = e.anomaly_model || (profile === "host_auth" ? "iforest_host_auth_v1" : "iforest_host_behavior_v1");
+    const lines = [
+      `Model profile: ${model} marked this event as ${e.anomaly_label || "not scored"}.`,
+      `Auth risk (iforest_host_auth_v1): ${riskText(authRisk) || "not available for this event/window"}.`,
+      `Behavioral risk (iforest_host_behavior_v1): ${riskText(behaviorRisk) || "not available for this event/window"}.`
+    ];
+
+    if(finalRisk != null && authRisk != null && behaviorRisk != null){
+      lines.push(`Final host multilayer risk: ${riskText(finalRisk)} calculated as ${authWeight} * auth risk + ${behaviorWeight} * behavioral risk.`);
+    } else if(finalRisk != null) {
+      lines.push(`Final host multilayer risk: ${riskText(finalRisk)} using the available paired host-layer scores.`);
+    } else {
+      lines.push("Final host multilayer risk is not available yet because a matching auth and behavior event was not found in the same 5-minute host window.");
+    }
+
+    return lines;
+  }
+
+  function networkMlReasoning(e){
+    const iforestRisk = numberValue(e.anomaly_risk_10);
+    const svmRisk = numberValue(e.anomaly_risk_10_svm);
+    const networkRisk = numberValue(e.network_multilayer_risk);
+    const lines = [
+      `Isolation Forest risk (iforest_network_v1): ${riskText(iforestRisk) || "not available"}; label: ${e.anomaly_label || "not scored"}.`,
+      `SVM anomaly score (ocsvm_network_v1): ${hasDetailValue(e.anomaly_score_svm) ? e.anomaly_score_svm : "not available"}; label: ${e.anomaly_label_svm || "not available"}; risk: ${riskText(svmRisk) || "not available"}.`
+    ];
+
+    if(networkRisk != null && iforestRisk != null && svmRisk != null){
+      lines.push(`Final network multilayer risk: ${riskText(networkRisk)} calculated as 0.7 * Isolation Forest risk + 0.3 * OCSVM risk.`);
+    } else if(networkRisk != null) {
+      lines.push(`Final network multilayer risk: ${riskText(networkRisk)} using the available network ML score.`);
+    } else {
+      lines.push("Final network multilayer risk is not available because no network ML risk score was produced.");
+    }
+
+    return lines;
+  }
+
+  function mlReasoning(e){
+    const src = String(e.source || "").toLowerCase();
+    if(src === "host") return hostMlReasoning(e);
+    if(src === "network") return networkMlReasoning(e);
+    return ["No ML reasoning is available for this source type."];
+  }
+
+  function reasonHtml(e){
+    const ruleReason = e.severity_reason || "Rule reason not stored yet.";
+    const mlLines = mlReasoning(e);
+    return `
+      <div><b>Event meaning:</b> ${escapeHtml(eventMeaning(e))}</div>
+      <div style="margin-top:8px;"><b>Rule-based severity:</b> ${escapeHtml(ruleReason)}</div>
+      <div style="margin-top:8px;"><b>ML analysis:</b></div>
+      <ul>${mlLines.map(line => `<li>${escapeHtml(line)}</li>`).join("")}</ul>
+    `;
+  }
+
+  function anomalyDetailRows(e){
+    const rows = [
+      detailRow("Actor", e.actor || "-"),
+      detailRow("IP", e.ip || "-"),
+      detailRow("Resource", e.resource || "-"),
+    ];
+
+    const isHost = (e.source || "").toLowerCase() === "host";
+    const profile = (e.anomaly_source_profile || "").toLowerCase();
+
+    if(isHost){
+      const hostMultilayerRisk = riskText(e.host_multilayer_risk);
+
+      rows.push(detailRow("Auth risk", riskText(e.host_auth_risk)));
+      rows.push(detailRow("Behavioral risk", riskText(e.host_behavior_risk)));
+      rows.push(detailRow("Host multilayer risk", hostMultilayerRisk));
+      rows.push(detailRow("Anomaly model", e.anomaly_model || "-"));
+      rows.push(detailRow("Anomaly source profile", e.anomaly_source_profile || "-"));
+
+      if(profile === "host_auth"){
+        rows.push(detailRow("Auth anomaly label", e.anomaly_label || "-"));
+        rows.push(detailRow("Auth anomaly model", e.anomaly_model || "-"));
+      } else if(profile === "host_behavior"){
+        rows.push(detailRow("Behavior anomaly label", e.anomaly_label || "-"));
+        rows.push(detailRow("Behavior anomaly model", e.anomaly_model || "-"));
+      } else {
+        rows.push(detailRow("Anomaly label", e.anomaly_label || "-"));
+      }
+
+      return rows.join("");
+    }
+
+    rows.push(detailRow("Anomaly label", e.anomaly_label || "-"));
+    rows.push(detailRow("Anomaly risk", riskText(e.anomaly_risk_10)));
+    rows.push(detailRow("SVM risk", riskText(e.anomaly_risk_10_svm)));
+    rows.push(detailRow("Network multilayer risk", riskText(e.network_multilayer_risk)));
+    rows.push(detailRow("Anomaly model", e.anomaly_model || "-"));
+    rows.push(detailRow("SVM anomaly label", e.anomaly_label_svm || "-"));
+    rows.push(detailRow("SVM anomaly score", e.anomaly_score_svm));
+    return rows.join("");
+  }
+
   function openModal(e){
     const ts = (e.timestamp || "").replace("T"," ").slice(0,19);
     document.getElementById("mTitle").textContent = `Event #${e.id} • ${e.source || ""} • ${e.event_type || ""}`;
@@ -560,8 +787,7 @@
 
     document.getElementById("mSeverity").innerHTML = sevPill(e.severity);
 
-    const reason = e.severity_reason || "Reason not stored yet (OK).";
-    document.getElementById("mReason").textContent = reason;
+    document.getElementById("mReason").innerHTML = reasonHtml(e);
 
     const rules = rulesTriggered(e);
     document.getElementById("mRules").innerHTML = `<ul>${rules.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ul>`;
@@ -573,6 +799,7 @@
     const rawPretty = JSON.stringify(rawObj ?? e, null, 2);
     document.getElementById("mRaw").textContent = rawPretty;
 
+    /*
     document.getElementById("mFields").innerHTML = `
       <ul>
         <li><b>Actor:</b> ${escapeHtml(e.actor || "—")}</li>
@@ -580,11 +807,15 @@
         <li><b>Resource:</b> ${escapeHtml(e.resource || "—")}</li>
         <li><b>Anomaly label:</b> ${escapeHtml(e.anomaly_label || "—")}</li>
         <li><b>Anomaly risk:</b> ${escapeHtml(e.anomaly_risk_10 == null ? "—" : `${e.anomaly_risk_10} / 10`)}</li>
+        <li><b>Behavioral risk:</b> ${escapeHtml(e.anomaly_risk_10_svm == null ? "—" : `${e.anomaly_risk_10_svm} / 10`)}</li>
         <li><b>Anomaly model:</b> ${escapeHtml(e.anomaly_model || "—")}</li>
         <li><b>SVM anomaly label:</b> ${escapeHtml(e.anomaly_label_svm || "—")}</li>
         <li><b>SVM anomaly score:</b> ${escapeHtml(e.anomaly_score_svm == null ? "—" : e.anomaly_score_svm)}</li>
       </ul>
     `;
+    */
+
+    document.getElementById("mFields").innerHTML = `<ul>${anomalyDetailRows(e)}</ul>`;
 
     document.getElementById("backdrop").style.display = "flex";
   }
@@ -629,7 +860,7 @@
           <td>${escapeHtml(e.actor || "—")}</td>
           <td class="small">${escapeHtml(e.ip || "—")}</td>
           <td>${escapeHtml(e.resource || "—")}</td>
-          <td>${anomalyPill(e.anomaly_label)}</td>
+          <td>${anomalySummary(e)}</td>
           <td>${renderSeverityDropdown(e)}</td>
         </tr>
       `).join("");

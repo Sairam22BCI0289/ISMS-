@@ -13,7 +13,15 @@ class EventCreate(BaseModel):
     resource: Optional[str] = None
     
     anomaly_score: Optional[float] = None
+    anomaly_score_svm: Optional[float] = None
+    anomaly_risk_10: Optional[float] = None
+    anomaly_risk_10_svm: Optional[float] = None
+    host_auth_risk: Optional[float] = None
+    host_behavior_risk: Optional[float] = None
+    host_multilayer_risk: Optional[float] = None
+    network_multilayer_risk: Optional[float] = None
     anomaly_label: Optional[str] = None
+    anomaly_label_svm: Optional[str] = None
     anomaly_model: Optional[str] = None
     anomaly_source_profile: Optional[str] = None
     

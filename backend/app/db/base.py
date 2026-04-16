@@ -53,3 +53,47 @@ def _ensure_anomaly_svm_columns() -> None:
 
 
 _ensure_anomaly_svm_columns()
+
+
+def _ensure_anomaly_svm_risk_column() -> None:
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
+    with engine.begin() as conn:
+        exists = conn.execute(text(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='security_events'"
+        )).fetchone()
+        if not exists:
+            return
+
+        columns = [row[1] for row in conn.execute(text("PRAGMA table_info(security_events)")).fetchall()]
+        if "anomaly_risk_10_svm" not in columns:
+            conn.execute(text("ALTER TABLE security_events ADD COLUMN anomaly_risk_10_svm FLOAT"))
+
+
+_ensure_anomaly_svm_risk_column()
+
+
+def _ensure_host_multilayer_risk_column() -> None:
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
+    with engine.begin() as conn:
+        exists = conn.execute(text(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='security_events'"
+        )).fetchone()
+        if not exists:
+            return
+
+        columns = [row[1] for row in conn.execute(text("PRAGMA table_info(security_events)")).fetchall()]
+        if "host_multilayer_risk" not in columns:
+            conn.execute(text("ALTER TABLE security_events ADD COLUMN host_multilayer_risk FLOAT"))
+        if "host_auth_risk" not in columns:
+            conn.execute(text("ALTER TABLE security_events ADD COLUMN host_auth_risk FLOAT"))
+        if "host_behavior_risk" not in columns:
+            conn.execute(text("ALTER TABLE security_events ADD COLUMN host_behavior_risk FLOAT"))
+        if "network_multilayer_risk" not in columns:
+            conn.execute(text("ALTER TABLE security_events ADD COLUMN network_multilayer_risk FLOAT"))
+
+
+_ensure_host_multilayer_risk_column()
