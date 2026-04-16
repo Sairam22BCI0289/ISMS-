@@ -1,4 +1,10 @@
-from __future__ import annotations
+# Duplicate host_windows_eventlog.py files found:
+# - C:\Users\chini\Documents\isms\backend\app\ingest\host_windows_eventlog.py
+# - C:\Users\chini\Documents\isms\backend\_codex_backups\20260412_rollback_snapshot\backend\app\ingest\host_windows_eventlog.py
+
+print("[DEBUG] HOST_AGENT_BOOT_MARKER = V3_EXEC_CHECK")
+import os
+print(f"[DEBUG] RUNNING FILE PATH = {os.path.abspath(__file__)}")
 
 import sys
 from pathlib import Path
@@ -8,8 +14,8 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 import json
-import os
 import time
+import ipaddress
 from datetime import datetime, timezone
 from typing import Dict, Any, Iterable
 
@@ -22,6 +28,7 @@ import win32security  # type: ignore
 from app.config import API_BASE_URL
 
 POST_URL = f"{API_BASE_URL}/events"
+HOST_AGENT_BUILD = "POST_TRACE_V2"
 STATE_FILE = BACKEND_DIR / "data" / "host_logs" / "host_event_state.json"
 STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
@@ -31,13 +38,36 @@ HOST_EVENT_TYPE_MAP = {
     4634: "win_event_4634",
     4648: "win_event_4648",
     4672: "win_event_4672",
+    4688: "win_event_4688",
+    4656: "win_event_4656",
+    4663: "win_event_4663",
+    10: "win_event_10",
+    5156: "win_event_5156",
 }
 
-CHANNELS: tuple[str, ...] = ("Security", "System")
+AUTH_EVENT_IDS: set[int] = {4624, 4625, 4648, 4672}
+BEHAVIOR_EVENT_IDS: set[int] = {4688, 4656, 4663, 10, 5156}
+HOST_EVENT_ALLOWLIST: set[int] = AUTH_EVENT_IDS | BEHAVIOR_EVENT_IDS
+
+CHANNELS: tuple[str, ...] = ("Security", "System", "Microsoft-Windows-Sysmon/Operational")
 PRIVILEGES_TO_ENABLE: tuple[str, ...] = (
     win32con.SE_SECURITY_NAME,
     win32con.SE_BACKUP_NAME,
 )
+MAX_STRING_INSERTS = 24
+MAX_INSERT_LENGTH = 300
+ACTOR_INSERT_INDEXES: dict[int, tuple[int, ...]] = {
+    4624: (5, 1),
+    4625: (5, 1),
+    4634: (1,),
+    4648: (5, 1),
+    4672: (1,),
+}
+LOGON_TYPE_INSERT_INDEXES: dict[int, int] = {
+    4624: 8,
+    4625: 10,
+    4634: 4,
+}
 
 
 def load_state() -> Dict[str, Any]:
@@ -81,6 +111,7 @@ def enable_privileges(privilege_names: Iterable[str]) -> None:
 def _to_utc_iso(pytime_obj) -> str | None:
     if pytime_obj is None:
         return None
+
     try:
         if isinstance(pytime_obj, datetime):
             dt = pytime_obj.astimezone(timezone.utc) if pytime_obj.tzinfo else datetime.fromtimestamp(pytime_obj.timestamp(), tz=timezone.utc)
@@ -104,6 +135,83 @@ def _to_utc_iso(pytime_obj) -> str | None:
         return None
 
 
+def _safe_text(value: Any, max_length: int = MAX_INSERT_LENGTH) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if len(text) > max_length:
+        return text[:max_length]
+    return text
+
+
+def _get_string_inserts(ev) -> list[str]:
+    inserts = getattr(ev, "StringInserts", None) or []
+    safe_inserts: list[str] = []
+    for value in list(inserts)[:MAX_STRING_INSERTS]:
+        text = _safe_text(value)
+        if text is None:
+            safe_inserts.append("")
+        else:
+            safe_inserts.append(text)
+    return safe_inserts
+
+
+def _looks_like_sid(text: str) -> bool:
+    return text.upper().startswith("S-1-")
+
+
+def _extract_actor(event_id: int, string_inserts: list[str]) -> str | None:
+    preferred_indexes = ACTOR_INSERT_INDEXES.get(event_id, ())
+    for index in preferred_indexes:
+        if index < len(string_inserts):
+            candidate = _safe_text(string_inserts[index])
+            if candidate and not _looks_like_sid(candidate) and candidate != "-":
+                return candidate
+
+    for candidate in string_inserts:
+        text = _safe_text(candidate)
+        if text and not _looks_like_sid(text) and text != "-":
+            return text
+
+    return None
+
+
+def _extract_source_ip(string_inserts: list[str]) -> str | None:
+    for candidate in string_inserts:
+        text = _safe_text(candidate)
+        if not text or text in {"-", "::1", "127.0.0.1", "localhost"}:
+            continue
+        try:
+            ipaddress.ip_address(text)
+            return text
+        except ValueError:
+            continue
+    return None
+
+
+def _extract_logon_type(event_id: int, string_inserts: list[str]) -> int | None:
+    index = LOGON_TYPE_INSERT_INDEXES.get(event_id)
+    if index is not None and index < len(string_inserts):
+        try:
+            return int(str(string_inserts[index]).strip())
+        except Exception:
+            pass
+    return None
+
+
+def _extract_process_name(string_inserts: list[str]) -> str | None:
+    for candidate in string_inserts:
+        text = _safe_text(candidate)
+        if not text:
+            continue
+        lowered = text.lower()
+        if lowered.endswith((".exe", ".com", ".bat", ".cmd", ".ps1")):
+            return text
+    return None
+
+
 def map_event_type(event_id: int) -> str:
     return HOST_EVENT_TYPE_MAP.get(event_id, f"win_event_{event_id}")
 
@@ -121,6 +229,7 @@ def read_new_events(channel: str, last_record_number: int):
     hand = win32evtlog.OpenEventLog(None, channel)
     collected = []
     newest_record = last_record_number
+    skipped_low_value = 0
     flags = win32evtlog.EVENTLOG_BACKWARDS_READ | win32evtlog.EVENTLOG_SEQUENTIAL_READ
 
     while True:
@@ -138,23 +247,31 @@ def read_new_events(channel: str, last_record_number: int):
 
             src = getattr(ev, "SourceName", None) or channel
             eid = getattr(ev, "EventID", 0) & 0xFFFF
+            if eid not in HOST_EVENT_ALLOWLIST:
+                skipped_low_value += 1
+                if record_number > newest_record:
+                    newest_record = record_number
+                continue
 
-            user = None
-            try:
-                if ev.StringInserts and len(ev.StringInserts) > 0:
-                    user = str(ev.StringInserts[0])
-            except Exception:
-                pass
+            event_type = map_event_type(eid)
+            string_inserts = _get_string_inserts(ev)
+            user = _extract_actor(eid, string_inserts)
+            source_ip = _extract_source_ip(string_inserts)
+            logon_type = _extract_logon_type(eid, string_inserts)
+            process_name = _extract_process_name(string_inserts)
+            computer_name = _safe_text(getattr(ev, "ComputerName", None))
 
             event_time = _to_utc_iso(getattr(ev, "TimeGenerated", None))
+            print(f"[DEBUG] Captured Windows event channel={channel} record={record_number} event_id={eid}")
+            print(f"[DEBUG] Transforming host event event_id={eid} event_type={event_type}")
 
             collected.append(
                 {
                     "source": "host",
-                    "event_type": map_event_type(eid),
+                    "event_type": event_type,
                     "timestamp": event_time,
                     "actor": user,
-                    "ip": None,
+                    "ip": source_ip,
                     "resource": f"{channel}:{src}",
                     "rules_triggered": [f"HOST_EVENT_{eid}"],
                     "raw": {
@@ -163,6 +280,11 @@ def read_new_events(channel: str, last_record_number: int):
                         "event_id": eid,
                         "record_number": record_number,
                         "event_category": getattr(ev, "EventCategory", None),
+                        "source_ip": source_ip,
+                        "logon_type": logon_type,
+                        "process_name": process_name,
+                        "string_inserts": string_inserts,
+                        "computer_name": computer_name,
                     },
                 }
             )
@@ -174,17 +296,35 @@ def read_new_events(channel: str, last_record_number: int):
             break
 
     collected.reverse()
+    if skipped_low_value:
+        print(f"[DEBUG] Skipped {skipped_low_value} low-value host event(s) from channel={channel}")
     return collected, newest_record
 
 
 def post_event(evt: dict):
-    r = requests.post(POST_URL, json=evt, timeout=10)
+    print("[DEBUG] post_event() CALLED")
+    event_id = (evt.get("raw") or {}).get("event_id") if isinstance(evt.get("raw"), dict) else None
+    event_type = evt.get("event_type")
+    print(f"[DEBUG] post_event() entered event_id={event_id} event_type={event_type} url={POST_URL}", flush=True)
+    try:
+        r = requests.post(POST_URL, json=evt, timeout=10)
+    except Exception as ex:
+        print(f"[ERROR] POST exception event_id={event_id} event_type={event_type}: {ex}", flush=True)
+        raise
+
+    response_text = (r.text or "").replace("\n", " ")[:300]
+    print(f"[DEBUG] POST response event_id={event_id} event_type={event_type} status={r.status_code}", flush=True)
     if r.status_code >= 300:
+        print(f"[ERROR] POST failed event_id={event_id} event_type={event_type} status={r.status_code} body={response_text}", flush=True)
         raise RuntimeError(f"POST failed {r.status_code}: {r.text}")
+    print(f"[DEBUG] POST succeeded event_id={event_id} event_type={event_type} status={r.status_code}", flush=True)
 
 
 def main():
+    print("[DEBUG] ENTERED MAIN() OF HOST AGENT")
     print("[INFO] Host log streamer starting (Windows Event Log -> ISMS API)")
+    print(f"[DEBUG] HOST_AGENT_BUILD={HOST_AGENT_BUILD}", flush=True)
+    print(f"[DEBUG] HOST_AGENT_FILE={Path(__file__).resolve()}", flush=True)
     print(f"[INFO] Posting to: {POST_URL}")
     print("[INFO] Stop anytime with CTRL+C")
 
@@ -194,15 +334,17 @@ def main():
     except Exception as ex:
         print(f"[WARN] Could not enable all event log privileges: {ex}")
 
-    channels = list(CHANNELS)
+    channels: list[str] = []
     state = load_state()
     state.setdefault("last_record", {})
 
-    for ch in channels:
+    for ch in CHANNELS:
         if int(state["last_record"].get(ch, 0) or 0) > 0:
+            channels.append(ch)
             continue
         try:
             state["last_record"][ch] = get_latest_record_number(ch)
+            channels.append(ch)
             print(f"[INFO] Primed {ch} channel at record {state['last_record'][ch]} to avoid historical backlog")
         except Exception as ex:
             print(f"[WARN] Could not prime {ch} channel: {ex}")
@@ -211,6 +353,7 @@ def main():
 
     while True:
         try:
+            print("[DEBUG] ENTERING EVENT POLL LOOP")
             posted = 0
 
             for ch in channels:
@@ -218,7 +361,11 @@ def main():
 
                 try:
                     evs, newest_record = read_new_events(ch, last_record)
+                    print(f"[DEBUG] POST_LOOP channel={ch} ready_count={len(evs)}", flush=True)
                     for e in evs:
+                        event_id = (e.get("raw") or {}).get("event_id") if isinstance(e.get("raw"), dict) else None
+                        event_type = e.get("event_type")
+                        print(f"[DEBUG] About to POST event_id={event_id} event_type={event_type} channel={ch}", flush=True)
                         post_event(e)
                         posted += 1
 

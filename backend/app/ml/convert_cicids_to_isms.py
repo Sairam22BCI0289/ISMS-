@@ -38,10 +38,21 @@ def safe_int(value: str, default: int = 0) -> int:
         return default
 
 
-def map_label_to_event_type(label: str) -> str:
-    label = (label or "").strip().lower()
+def normalize_label(raw_label: str) -> str:
+    label = (raw_label or "").strip()
+    if not label:
+        return "BENIGN"
+    return label
 
-    if label == "benign":
+
+def normalize_keys(row: dict) -> dict:
+    return {str(k).strip().lower(): v for k, v in row.items()}
+
+
+def map_label_to_event_type(label: str) -> str:
+    normalized = (label or "").strip().lower()
+
+    if normalized == "benign":
         return "net_conn_allowed"
 
     suspicious_keywords = [
@@ -56,25 +67,37 @@ def map_label_to_event_type(label: str) -> str:
         "web attack",
         "sql injection",
         "xss",
+        "heartbleed",
     ]
 
     for keyword in suspicious_keywords:
-        if keyword in label:
+        if keyword in normalized:
             return "net_conn_high_risk"
 
     return "net_conn_allowed"
 
 
-def map_row_to_isms_event(row: dict) -> dict:
-    dst_port = safe_int(row.get("Dst Port", 0))
-    protocol = safe_int(row.get("Protocol", 0))
-    flow_duration = safe_float(row.get("Flow Duration", 0.0))
-    tot_fwd_pkts = safe_int(row.get("Tot Fwd Pkts", 0))
-    tot_bwd_pkts = safe_int(row.get("Tot Bwd Pkts", 0))
-    flow_bytes_s = safe_float(row.get("Flow Byts/s", 0.0))
-    flow_pkts_s = safe_float(row.get("Flow Pkts/s", 0.0))
-    label = str(row.get("Label", "BENIGN")).strip()
+def get_label_from_row(row: dict) -> str:
+    for key in row.keys():
+        if "label" in str(key).strip().lower():
+            return normalize_label(str(row.get(key, "")).strip())
+    return "BENIGN"
 
+
+def map_row_to_isms_event(row: dict) -> dict:
+    row_n = normalize_keys(row)
+
+    dst_port = safe_int(row_n.get("destination port", 0))
+    flow_duration = safe_float(row_n.get("flow duration", 0.0))
+    tot_fwd_pkts = safe_int(row_n.get("total fwd packets", 0))
+    tot_bwd_pkts = safe_int(row_n.get("total backward packets", 0))
+    flow_bytes_s = safe_float(row_n.get("flow bytes/s", 0.0))
+    flow_pkts_s = safe_float(row_n.get("flow packets/s", 0.0))
+
+    # CICIDS MachineLearningCSV file shown here does not expose Protocol
+    protocol = 0
+
+    label = get_label_from_row(row)
     event_type = map_label_to_event_type(label)
 
     return {
@@ -114,6 +137,7 @@ def main() -> int:
 
     total_rows = 0
     written_rows = 0
+    debug_count = 0
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -126,6 +150,22 @@ def main() -> int:
                     total_rows += 1
                     try:
                         event = map_row_to_isms_event(row)
+
+                        if debug_count < 10:
+                            raw_payload = json.loads(event["raw"])
+                            print(
+                                "[DEBUG]",
+                                f"label={raw_payload['label']}",
+                                f"dst_port={raw_payload['dst_port']}",
+                                f"protocol={raw_payload['protocol']}",
+                                f"flow_duration={raw_payload['flow_duration']}",
+                                f"tot_fwd_pkts={raw_payload['tot_fwd_pkts']}",
+                                f"tot_bwd_pkts={raw_payload['tot_bwd_pkts']}",
+                                f"flow_bytes_s={raw_payload['flow_bytes_s']}",
+                                f"flow_pkts_s={raw_payload['flow_pkts_s']}",
+                            )
+                            debug_count += 1
+
                         out_f.write(json.dumps(event) + "\n")
                         written_rows += 1
                     except Exception:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import sys
 from pathlib import Path
@@ -14,6 +15,8 @@ from app.ml.features import extract_network_features
 
 MIN_TRAINING_ROWS = 20
 MODEL_PATH = BACKEND_DIR / "models" / "network_ocsvm.joblib"
+SCALER_PATH = BACKEND_DIR / "models" / "network_ocsvm_scaler.joblib"
+META_PATH = BACKEND_DIR / "models" / "network_ocsvm_meta.json"
 
 
 def is_valid_feature_vector(vector: list[float]) -> bool:
@@ -41,6 +44,7 @@ def row_to_event_dict(row: SecurityEvent) -> dict:
 def main() -> int:
     try:
         import joblib
+        from sklearn.preprocessing import StandardScaler
         from sklearn.svm import OneClassSVM
     except ImportError as exc:
         print(f"[ERROR] Missing training dependency: {exc}")
@@ -82,14 +86,36 @@ def main() -> int:
         gamma="scale",
         nu=0.05,
     )
-    model.fit(feature_rows)
+    scaler = StandardScaler()
+    feature_rows_scaled = scaler.fit_transform(feature_rows)
+    model.fit(feature_rows_scaled)
+    training_scores = [float(value) for value in model.decision_function(feature_rows_scaled)]
+    sorted_scores = sorted(training_scores)
+    mean_score = sum(training_scores) / len(training_scores)
+    variance = sum((score - mean_score) ** 2 for score in training_scores) / len(training_scores)
+
+    score_meta = {
+        "min": float(sorted_scores[0]),
+        "max": float(sorted_scores[-1]),
+        "mean": float(mean_score),
+        "std": float(math.sqrt(variance)),
+        "q01": float(sorted_scores[int((len(sorted_scores) - 1) * 0.01)]),
+        "q05": float(sorted_scores[int((len(sorted_scores) - 1) * 0.05)]),
+        "q10": float(sorted_scores[int((len(sorted_scores) - 1) * 0.10)]),
+        "q25": float(sorted_scores[int((len(sorted_scores) - 1) * 0.25)]),
+        "q50": float(sorted_scores[int((len(sorted_scores) - 1) * 0.50)]),
+    }
 
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, MODEL_PATH)
+    joblib.dump(scaler, SCALER_PATH)
+    META_PATH.write_text(json.dumps(score_meta, indent=2), encoding="utf-8")
 
     print(f"[INFO] Read {total_network_events} network events from the database.")
     print(f"[INFO] Used {len(feature_rows)} feature rows for training.")
     print(f"[INFO] Saved model to: {MODEL_PATH}")
+    print(f"[INFO] Saved scaler to: {SCALER_PATH}")
+    print(f"[INFO] Saved metadata to: {META_PATH}")
     return 0
 
 
