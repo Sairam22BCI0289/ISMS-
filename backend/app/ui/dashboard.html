@@ -7,195 +7,385 @@
 
   <style>
     :root{
-      --bg: #f5f7fb;
-      --card: #ffffff;
-      --text: #111827;
-      --muted: #6b7280;
-      --border: #e5e7eb;
+      --bg: #07111f;
+      --bg2: #0b1728;
+      --card: #101d30;
+      --card2: #13233a;
+      --text: #e6edf7;
+      --muted: #8ea1ba;
+      --muted2: #b9c7d9;
+      --border: #24364f;
+      --border2: #304862;
 
-      --blue: #2563eb;
-      --green: #16a34a;
+      --blue: #38bdf8;
+      --green: #22c55e;
       --amber: #f59e0b;
-      --red: #dc2626;
+      --red: #ef4444;
+      --violet: #a78bfa;
 
-      --rowHover: #f9fafb;
+      --rowHover: #16263c;
+      --shadow: 0 18px 55px rgba(0,0,0,0.28);
     }
+
+    *{ box-sizing: border-box; }
 
     body{
       margin: 0;
       font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
-      background: var(--bg);
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.12), transparent 34%),
+        linear-gradient(180deg, #07111f 0%, #091525 45%, #07111f 100%);
       color: var(--text);
+      min-height: 100vh;
     }
 
     header{
-      background: var(--card);
+      background: rgba(9,21,37,0.92);
       border-bottom: 1px solid var(--border);
-      padding: 16px 22px;
+      padding: 18px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 14px;
+      gap: 16px;
       flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(14px);
     }
 
     header .title{
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 4px;
     }
 
     header h1{
       margin: 0;
-      font-size: 18px;
-      font-weight: 650;
-      letter-spacing: 0.2px;
+      font-size: 20px;
+      font-weight: 760;
+      letter-spacing: 0.3px;
     }
 
     header .subtitle{
       color: var(--muted);
       font-size: 12px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    header .subtitle + .subtitle{ display:none; }
+
+    .header-actions{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      flex-wrap: wrap;
     }
 
     .badge{
-      padding: 6px 10px;
+      padding: 7px 11px;
       border-radius: 999px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--border2);
       font-size: 12px;
-      background: #fff;
+      background: rgba(16,29,48,0.86);
+      color: var(--muted2);
       display:flex;
       gap:6px;
       align-items:center;
+      white-space: nowrap;
     }
 
     .badge.ok{
-      border-color: #bae6fd;
-      background: #ecfeff;
-      color: #0369a1;
+      border-color: rgba(56,189,248,0.38);
+      background: rgba(14,116,144,0.18);
+      color: #bae6fd;
     }
 
-    main{ padding: 18px 22px; }
+    main{
+      padding: 20px 24px 28px;
+      max-width: 1540px;
+      margin: 0 auto;
+    }
 
-    .grid{
-      display: grid;
-      grid-template-columns: repeat(4, minmax(160px, 1fr));
+    .section-title{
+      display:flex;
+      justify-content: space-between;
+      align-items: center;
       gap: 12px;
       margin-bottom: 12px;
     }
 
-    @media (max-width: 950px){
-      .grid{ grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+    .section-title h2{
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted2);
     }
-    @media (max-width: 520px){
-      .grid{ grid-template-columns: 1fr; }
+
+    .grid{
+      display: grid;
+      grid-template-columns: repeat(7, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .health-grid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 1180px){
+      .grid{ grid-template-columns: repeat(3, minmax(150px, 1fr)); }
+    }
+    @media (max-width: 760px){
+      .grid, .health-grid{ grid-template-columns: 1fr; }
+      main{ padding: 16px; }
     }
 
     .card{
-      background: var(--card);
+      background: linear-gradient(180deg, rgba(19,35,58,0.96), rgba(14,27,45,0.96));
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 16px;
       padding: 14px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.03), var(--shadow);
     }
 
     .metric{
       display:flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 7px;
+      min-height: 92px;
+      justify-content: space-between;
     }
-    .metric .label{ font-size: 12px; color: var(--muted); }
-    .metric .value{ font-size: 22px; font-weight: 750; }
+    .metric .label{
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .metric .value{
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .metric .hint{
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .health-card{
+      display:flex;
+      justify-content: space-between;
+      align-items:flex-start;
+      gap: 12px;
+    }
+    .health-name{
+      font-size: 13px;
+      font-weight: 760;
+      color: var(--text);
+    }
+    .health-meta{
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status-dot{
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display:inline-block;
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.04);
+    }
+    .status-recent{ background: var(--green); }
+    .status-stale{ background: var(--amber); }
+    .status-quiet{ background: #64748b; }
 
     .controls{
+      display:grid;
+      grid-template-columns: repeat(6, minmax(140px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+    .control-wide{ grid-column: span 2; }
+    .control{
+      display:flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control label{
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .control-actions{
       display:flex;
       gap: 10px;
+      align-items:center;
       flex-wrap: wrap;
-      align-items: center;
+    }
+
+    @media (max-width: 1120px){
+      .controls{ grid-template-columns: repeat(3, minmax(140px, 1fr)); }
+    }
+    @media (max-width: 720px){
+      .controls{ grid-template-columns: 1fr; }
+      .control-wide{ grid-column: span 1; }
     }
 
     select, input{
-      padding: 9px 10px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: #fff;
+      padding: 10px 11px;
+      border-radius: 11px;
+      border: 1px solid var(--border2);
+      background: #0b1728;
+      color: var(--text);
       font-size: 14px;
       outline: none;
     }
+    select:focus, input:focus{
+      border-color: rgba(56,189,248,0.75);
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.14);
+    }
+
+    .check-control{
+      flex-direction: row;
+      align-items:center;
+      padding: 10px 11px;
+      border-radius: 11px;
+      border: 1px solid var(--border2);
+      background: #0b1728;
+      min-height: 42px;
+    }
+    .check-control input{ padding:0; }
+    .check-control label{
+      text-transform:none;
+      letter-spacing: 0;
+      color: var(--muted2);
+      font-size: 13px;
+    }
 
     button{
-      padding: 9px 12px;
-      border-radius: 10px;
-      border: none;
-      background: var(--blue);
+      padding: 10px 13px;
+      border-radius: 11px;
+      border: 1px solid rgba(56,189,248,0.34);
+      background: linear-gradient(180deg, #0ea5e9, #0369a1);
       color: #fff;
       font-size: 14px;
+      font-weight: 720;
       cursor: pointer;
     }
     button.secondary{
-      background: #e5e7eb;
-      color: #111827;
+      background: #17263d;
+      color: var(--muted2);
+      border-color: var(--border2);
+    }
+
+    .table-wrap{
+      margin-top: 14px;
+      overflow: auto;
+      border-radius: 14px;
+      border: 1px solid var(--border);
     }
 
     table{
       width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-top: 0;
       font-size: 14px;
-      overflow: hidden;
-      border-radius: 14px;
+      overflow: visible;
+      border: 0;
     }
 
     thead th{
       text-align: left;
-      padding: 10px 10px;
+      padding: 11px 12px;
       color: var(--muted);
-      font-weight: 650;
+      font-weight: 760;
       border-bottom: 1px solid var(--border);
-      background: #fbfbfd;
+      background: #0d1b2e;
       position: sticky;
       top: 0;
-      z-index: 1;
+      z-index: 3;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     tbody td{
-      padding: 10px 10px;
-      border-bottom: 1px solid var(--border);
+      padding: 12px;
+      border-bottom: 1px solid rgba(36,54,79,0.72);
       vertical-align: top;
-      background: #fff;
+      background: rgba(13,27,46,0.72);
+    }
+
+    tbody tr{
+      cursor: pointer;
     }
 
     tbody tr:hover td{
       background: var(--rowHover);
     }
 
+    .event-title{
+      font-weight: 760;
+      color: var(--text);
+    }
+    .entity-line{
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+      max-width: 520px;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .risk-value{
+      font-weight: 800;
+      color: #e0f2fe;
+      font-size: 16px;
+    }
+    .risk-caption{
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
     .pill{
       display: inline-block;
       padding: 4px 10px;
       border-radius: 999px;
-      color: #fff;
-      font-weight: 750;
-      font-size: 12px;
-      letter-spacing: 0.3px;
+      color: #06111f;
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
     }
-    .sev-low{ background: var(--green); }
-    .sev-medium{ background: var(--amber); }
-    .sev-high{ background: var(--red); }
-    .anomaly-normal{ background: var(--green); }
-    .anomaly-detected{ background: var(--red); }
+    .sev-low{ background: #86efac; }
+    .sev-medium{ background: #fcd34d; }
+    .sev-high{ background: #fca5a5; }
+    .anomaly-normal{ background: #86efac; }
+    .anomaly-detected{ background: #fca5a5; }
 
     .src-pill{
       display:inline-block;
-      padding: 3px 8px;
+      padding: 4px 9px;
       border-radius: 999px;
-      font-size: 12px;
-      border: 1px solid var(--border);
-      background: #fff;
-      color: #111827;
-      font-weight: 650;
+      font-size: 11px;
+      border: 1px solid var(--border2);
+      background: #0b1728;
+      color: var(--muted2);
+      font-weight: 800;
+      letter-spacing: 0.08em;
     }
-    .src-host{ border-color:#c7d2fe; background:#eef2ff; color:#3730a3; }
-    .src-cloud{ border-color:#bae6fd; background:#ecfeff; color:#0369a1; }
-    .src-network{ border-color:#bbf7d0; background:#ecfdf5; color:#065f46; }
+    .src-host{ border-color:#818cf8; background:rgba(79,70,229,0.18); color:#c7d2fe; }
+    .src-cloud{ border-color:#38bdf8; background:rgba(14,116,144,0.18); color:#bae6fd; }
+    .src-network{ border-color:#22c55e; background:rgba(21,128,61,0.18); color:#bbf7d0; }
 
     details summary{ cursor:pointer; list-style:none; }
     details summary::-webkit-details-marker{ display:none; }
@@ -207,14 +397,54 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 10px;
-      background: #fbfbfd;
+      background: rgba(7,17,31,0.58);
+      color: var(--muted2);
+    }
+
+    .section-card{
+      background: rgba(16,29,48,0.74);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: none;
+    }
+    .section-card h3{
+      margin: 0 0 9px;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted2);
+    }
+
+    .entity-grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .kv{
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(7,17,31,0.45);
+    }
+    .kv .k{
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .kv .v{
+      margin-top: 4px;
+      color: var(--text);
+      font-size: 12px;
+      word-break: break-word;
     }
 
     /* Modal */
     .backdrop{
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.45);
+      background: rgba(1,8,18,0.78);
       display: none;
       align-items: center;
       justify-content: center;
@@ -222,13 +452,13 @@
       z-index: 50;
     }
     .modal{
-      width: min(980px, 95vw);
-      max-height: 90vh;
+      width: min(1180px, 96vw);
+      max-height: 92vh;
       overflow: auto;
-      background: #fff;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      background: #0b1728;
+      border-radius: 18px;
+      border: 1px solid var(--border2);
+      box-shadow: 0 30px 90px rgba(0,0,0,0.58);
       padding: 16px;
     }
     .modal-header{
@@ -236,80 +466,127 @@
       justify-content: space-between;
       align-items:center;
       gap: 12px;
-      padding-bottom: 10px;
+      padding-bottom: 12px;
       border-bottom: 1px solid var(--border);
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
     .modal-title{
       display:flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
     }
     .modal-title h2{
       margin:0;
-      font-size: 16px;
-      font-weight: 750;
+      font-size: 18px;
+      font-weight: 800;
     }
     .close{
-      background: #fff;
-      border: 1px solid var(--border);
+      background: #17263d;
+      border: 1px solid var(--border2);
       padding: 8px 10px;
       border-radius: 10px;
       cursor: pointer;
-      color:#111827;
+      color: var(--text);
     }
     pre{
-      background: #0b0b0b;
-      color: #e6e6e6;
+      background: #020617;
+      color: #dbeafe;
       padding: 12px;
       border-radius: 12px;
       overflow:auto;
       font-size: 12px;
-      line-height: 1.4;
+      line-height: 1.45;
+      border: 1px solid var(--border);
     }
     .cols{
-      display:flex;
+      display:grid;
+      grid-template-columns: 1.15fr 0.85fr;
       gap: 14px;
-      flex-wrap: wrap;
     }
     .col{
-      flex: 1 1 360px;
-      min-width: 320px;
+      min-width: 0;
+      display:flex;
+      flex-direction: column;
+      gap: 14px;
     }
-    ul{ margin: 8px 0 0 18px; }
+    ul{ margin: 8px 0 0 18px; padding: 0; }
+
+    @media (max-width: 900px){
+      .cols{ grid-template-columns: 1fr; }
+      thead th{ top: 0; }
+    }
   </style>
 </head>
 
 <body>
   <header>
     <div class="title">
-      <h1>ISMS Dashboard</h1>
+      <h1>ISMS Security Operations Console</h1>
+      <div class="subtitle">Host / Network / Cloud monitoring - rule severity - ML anomaly context</div>
       <div class="subtitle">Host • Network • Cloud • Rule-based severity • UTC timestamps</div>
     </div>
     <div class="badge ok">Backend: <span id="backendStatus">checking…</span></div>
+    <div class="badge">Auto-refresh: <b id="refreshStateHeader">ON</b></div>
   </header>
 
   <main>
+    <div class="section-title">
+      <h2>Operations Summary</h2>
+      <span class="small">Derived from currently loaded events only</span>
+    </div>
     <div class="grid">
       <div class="card metric">
-        <div class="label">Total shown</div>
+        <div class="label">Visible events</div>
         <div class="value" id="mTotal">0</div>
+        <div class="hint">after filters</div>
       </div>
       <div class="card metric">
-        <div class="label">High</div>
+        <div class="label">High severity</div>
         <div class="value" id="mHigh">0</div>
+        <div class="hint">triage priority</div>
       </div>
       <div class="card metric">
-        <div class="label">Medium</div>
-        <div class="value" id="mMed">0</div>
+        <div class="label">Anomalies</div>
+        <div class="value" id="mAnomaly">0</div>
+        <div class="hint">ML label anomalous</div>
       </div>
       <div class="card metric">
-        <div class="label">Low</div>
-        <div class="value" id="mLow">0</div>
+        <div class="label">Host</div>
+        <div class="value" id="mHost">0</div>
+        <div class="hint">endpoint events</div>
+      </div>
+      <div class="card metric">
+        <div class="label">Network</div>
+        <div class="value" id="mNetwork">0</div>
+        <div class="hint">connection events</div>
+      </div>
+      <div class="card metric">
+        <div class="label">Cloud</div>
+        <div class="value" id="mCloud">0</div>
+        <div class="hint">CloudTrail events</div>
+      </div>
+      <div class="card metric">
+        <div class="label">Avg risk</div>
+        <div class="value" id="mAvgRisk">-</div>
+        <div class="hint">displayed risk / 10</div>
       </div>
     </div>
 
+    <div class="section-title">
+      <h2>Source Freshness</h2>
+      <span class="small">Approximate status inferred from loaded event recency, not an agent heartbeat</span>
+    </div>
+    <div class="health-grid">
+      <div class="card health-card" id="healthHost"></div>
+      <div class="card health-card" id="healthNetwork"></div>
+      <div class="card health-card" id="healthCloud"></div>
+    </div>
+
     <div class="card">
+      <div class="section-title">
+        <h2>Triage Queue</h2>
+        <span class="small">Click a row to investigate the event</span>
+      </div>
       <div class="controls">
         <select id="source">
           <option value="">All sources</option>
@@ -325,32 +602,51 @@
           <option value="low">Low</option>
         </select>
 
+        <select id="anomalyFilter">
+          <option value="">Any anomaly label</option>
+          <option value="anomalous">Anomalous</option>
+          <option value="normal">Normal</option>
+          <option value="missing">Not scored</option>
+        </select>
+
+        <input id="eventTypeFilter" placeholder="Event type" />
+        <input id="actorFilter" placeholder="Actor" />
+        <input id="ipFilter" placeholder="IP" />
+
         <input id="search" placeholder="Search actor/event/resource…" size="28" />
         <input id="limit" type="number" min="1" max="500" value="80" />
 
+        <div class="check-control">
+          <input id="riskOnly" type="checkbox" />
+          <label for="riskOnly">Only multilayer / high-risk</label>
+        </div>
+
         <button id="refreshBtn">Refresh</button>
+        <button id="clearFiltersBtn" class="secondary">Clear filters</button>
         <button id="toggleBtn" class="secondary">Pause</button>
 
         <span class="small">Auto-refresh: <b id="refreshState">ON</b> • Tip: Click a row for full analysis</span>
       </div>
 
+      <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th style="width:160px;">Time (UTC)</th>
-            <th style="width:120px;">Source</th>
+            <th style="width:165px;">Time (UTC)</th>
+            <th style="width:95px;">Source</th>
             <th>Event</th>
             <th style="width:160px;">Actor</th>
             <th style="width:140px;">IP</th>
             <th>Resource</th>
-            <th style="width:140px;">Anomaly</th>
-            <th style="width:150px;">Severity</th>
+            <th style="width:155px;">Anomaly / Risk</th>
+            <th style="width:145px;">Severity</th>
           </tr>
         </thead>
         <tbody id="rows">
           <tr><td colspan="8" class="small">Loading…</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
   </main>
 
@@ -367,6 +663,16 @@
 
       <div class="cols">
         <div class="col">
+          <div class="section-card">
+            <h3>What happened</h3>
+            <div id="mHappened" class="small"></div>
+          </div>
+
+          <div class="section-card">
+            <h3>ML analysis</h3>
+            <div class="panel small" id="mMl">-</div>
+          </div>
+
           <div class="card" style="box-shadow:none;">
             <div><b>Severity</b>: <span id="mSeverity"></span></div>
             <div style="margin-top:8px;"><b>Reason</b>:</div>
@@ -378,6 +684,16 @@
         </div>
 
         <div class="col">
+          <div class="section-card">
+            <h3>Affected entity</h3>
+            <div id="mEntity" class="entity-grid"></div>
+          </div>
+
+          <div class="section-card">
+            <h3>Related timeline</h3>
+            <div class="panel small" id="mTimeline">-</div>
+          </div>
+
           <div class="card" style="box-shadow:none;">
             <div><b>Recommended actions</b>:</div>
             <div class="panel small" id="mActions">—</div>
@@ -402,6 +718,7 @@
 <script>
   let autoRefresh = true;
   let timer = null;
+  let rawData = [];
   let lastData = [];
 
   // Lightweight "playbook" actions for better demo (rule-based, not ML)
@@ -513,31 +830,101 @@
   }
 
   function buildQuery(){
-    const source = document.getElementById("source").value.trim();
-    const severity = document.getElementById("severity").value.trim();
-    const search = document.getElementById("search").value.trim();
     const limit = document.getElementById("limit").value || "80";
 
     const params = new URLSearchParams();
     params.set("limit", limit);
-    if(source) params.set("source", source);
-    if(severity) params.set("severity", severity);
-    if(search) params.set("q", search);
     return "/events?" + params.toString();
   }
 
   function updateMetrics(events){
-    let hi=0, med=0, lo=0;
+    let hi=0, anomalies=0, host=0, network=0, cloud=0, riskSum=0, riskCount=0;
     for(const e of events){
       const s = (e.severity||"").toLowerCase();
       if(s==="high") hi++;
-      else if(s==="medium") med++;
-      else if(s==="low") lo++;
+      if((e.anomaly_label || "").toLowerCase() === "anomalous") anomalies++;
+      const src = (e.source || "").toLowerCase();
+      if(src === "host") host++;
+      else if(src === "network") network++;
+      else if(src === "cloud") cloud++;
+      const risk = numberValue(primaryRiskNumber(e));
+      if(risk != null){ riskSum += risk; riskCount++; }
     }
     document.getElementById("mTotal").textContent = events.length;
     document.getElementById("mHigh").textContent = hi;
-    document.getElementById("mMed").textContent = med;
-    document.getElementById("mLow").textContent = lo;
+    document.getElementById("mAnomaly").textContent = anomalies;
+    document.getElementById("mHost").textContent = host;
+    document.getElementById("mNetwork").textContent = network;
+    document.getElementById("mCloud").textContent = cloud;
+    document.getElementById("mAvgRisk").textContent = riskCount ? (riskSum / riskCount).toFixed(1) : "-";
+  }
+
+  function includesText(value, needle){
+    return String(value ?? "").toLowerCase().includes(needle);
+  }
+
+  function eventSearchText(e){
+    const raw = parseRaw(e.raw);
+    return [
+      e.source, e.event_type, e.actor, e.ip, e.resource, e.severity,
+      e.severity_reason, e.anomaly_label, e.anomaly_model,
+      e.anomaly_source_profile, JSON.stringify(raw || {})
+    ].join(" ").toLowerCase();
+  }
+
+  function applyClientFilters(events){
+    const source = document.getElementById("source").value.trim().toLowerCase();
+    const severity = document.getElementById("severity").value.trim().toLowerCase();
+    const anomaly = document.getElementById("anomalyFilter").value.trim().toLowerCase();
+    const eventType = document.getElementById("eventTypeFilter").value.trim().toLowerCase();
+    const actor = document.getElementById("actorFilter").value.trim().toLowerCase();
+    const ip = document.getElementById("ipFilter").value.trim().toLowerCase();
+    const search = document.getElementById("search").value.trim().toLowerCase();
+    const riskOnly = document.getElementById("riskOnly").checked;
+
+    return events.filter(e => {
+      if(source && (e.source || "").toLowerCase() !== source) return false;
+      if(severity && (e.severity || "").toLowerCase() !== severity) return false;
+      if(anomaly === "missing" && e.anomaly_label) return false;
+      if(anomaly && anomaly !== "missing" && (e.anomaly_label || "").toLowerCase() !== anomaly) return false;
+      if(eventType && !includesText(e.event_type, eventType)) return false;
+      if(actor && !includesText(e.actor, actor)) return false;
+      if(ip && !includesText(e.ip, ip)) return false;
+      if(riskOnly){
+        const risk = primaryRiskNumber(e);
+        const hasLayer = e.host_multilayer_risk != null || e.network_multilayer_risk != null;
+        if(!hasLayer && (risk == null || risk < 7.0)) return false;
+      }
+      if(search && !eventSearchText(e).includes(search)) return false;
+      return true;
+    });
+  }
+
+  function updateSourceHealth(events){
+    ["host", "network", "cloud"].forEach(src => {
+      const target = document.getElementById(`health${src.charAt(0).toUpperCase()}${src.slice(1)}`);
+      const latest = events
+        .filter(e => (e.source || "").toLowerCase() === src && e.timestamp)
+        .map(e => new Date(e.timestamp))
+        .filter(d => !Number.isNaN(d.getTime()))
+        .sort((a,b) => b - a)[0];
+
+      if(!latest){
+        target.innerHTML = `
+          <div><div class="health-name">${src.toUpperCase()}</div><div class="health-meta">No recent events in loaded set</div></div>
+          <span class="status-dot status-quiet"></span>
+        `;
+        return;
+      }
+
+      const minutes = Math.max(0, Math.round((Date.now() - latest.getTime()) / 60000));
+      const status = minutes <= 10 ? "Recent activity seen" : minutes <= 60 ? "Activity stale" : "No recent events";
+      const cls = minutes <= 10 ? "status-recent" : minutes <= 60 ? "status-stale" : "status-quiet";
+      target.innerHTML = `
+        <div><div class="health-name">${src.toUpperCase()}</div><div class="health-meta">${status} - ${minutes} min ago</div></div>
+        <span class="status-dot ${cls}"></span>
+      `;
+    });
   }
 
   function renderSeverityDropdown(e){
@@ -565,10 +952,15 @@
     return value == null ? null : `${value} / 10`;
   }
 
+  function primaryRiskNumber(e){
+    const source = (e.source || "").toLowerCase();
+    if(source === "host") return numberValue(e.host_multilayer_risk ?? e.anomaly_risk_10);
+    if(source === "network") return numberValue(e.network_multilayer_risk ?? e.anomaly_risk_10);
+    return numberValue(e.anomaly_risk_10);
+  }
+
   function primaryRiskText(e){
-    const isHost = (e.source || "").toLowerCase() === "host";
-    if(isHost) return riskText(e.host_multilayer_risk);
-    return riskText(e.network_multilayer_risk ?? e.anomaly_risk_10);
+    return riskText(primaryRiskNumber(e));
   }
 
   function anomalySummary(e){
@@ -827,14 +1219,79 @@
     return rows.join("");
   }
 
+  function modelProfileText(e){
+    const model = e.anomaly_model || "-";
+    const profile = e.anomaly_source_profile || "";
+    return profile ? `${model} / ${profile}` : model;
+  }
+
+  function entitySummaryHtml(e){
+    const items = [
+      ["Actor", e.actor || "-"],
+      ["IP", e.ip || "-"],
+      ["Resource", e.resource || "-"],
+      ["Source", e.source || "-"],
+      ["Event type", e.event_type || "-"],
+      ["Severity", e.severity || "-"],
+      ["Anomaly", e.anomaly_label || "-"],
+      ["Model", e.anomaly_model || "-"]
+    ];
+    return items.map(([k,v]) => `
+      <div class="kv"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v)}</div></div>
+    `).join("");
+  }
+
+  function relatedTimelineHtml(e){
+    const selectedTs = new Date(e.timestamp || "");
+    const selectedTime = selectedTs.getTime();
+    const related = rawData
+      .filter(x => String(x.id) !== String(e.id))
+      .filter(x => {
+        const ts = new Date(x.timestamp || "");
+        const delta = Number.isFinite(selectedTime) && !Number.isNaN(ts.getTime())
+          ? Math.abs(ts.getTime() - selectedTime)
+          : 0;
+        const sameActor = e.actor && x.actor && String(e.actor).toLowerCase() === String(x.actor).toLowerCase();
+        const sameIp = e.ip && x.ip && String(e.ip).toLowerCase() === String(x.ip).toLowerCase();
+        const sameResource = e.resource && x.resource && String(e.resource).toLowerCase() === String(x.resource).toLowerCase();
+        const sameSource = e.source && x.source && String(e.source).toLowerCase() === String(x.source).toLowerCase();
+        return (sameActor || sameIp || sameResource || sameSource) && delta <= 15 * 60 * 1000;
+      })
+      .slice(0, 6);
+
+    if(!related.length) return "No nearby related events in the currently loaded set.";
+
+    return `<ul>${related.map(x => {
+      const ts = (x.timestamp || "").replace("T"," ").slice(0,19);
+      const why = [
+        e.actor && x.actor && String(e.actor).toLowerCase() === String(x.actor).toLowerCase() ? "actor" : "",
+        e.ip && x.ip && String(e.ip).toLowerCase() === String(x.ip).toLowerCase() ? "IP" : "",
+        e.resource && x.resource && String(e.resource).toLowerCase() === String(x.resource).toLowerCase() ? "resource" : "",
+        e.source && x.source && String(e.source).toLowerCase() === String(x.source).toLowerCase() ? "source" : ""
+      ].filter(Boolean).join(", ");
+      return `<li>${escapeHtml(ts)} - ${escapeHtml(x.event_type || "-")} (${escapeHtml(why || "related")})</li>`;
+    }).join("")}</ul>`;
+  }
+
+  function mlReasonListHtml(e){
+    return `<ul>${mlReasoning(e).map(line => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`;
+  }
+
   function openModal(e){
     const ts = (e.timestamp || "").replace("T"," ").slice(0,19);
     document.getElementById("mTitle").textContent = `Event #${e.id} • ${e.source || ""} • ${e.event_type || ""}`;
     document.getElementById("mSubtitle").textContent = `${ts} UTC`;
 
+    document.getElementById("mHappened").innerHTML = `
+      <div>${escapeHtml(eventMeaning(e))}</div>
+      <div style="margin-top:8px;">${srcPill(e.source)} ${sevPill(e.severity)} ${anomalyPill(e.anomaly_label)}</div>
+    `;
+
+    document.getElementById("mEntity").innerHTML = entitySummaryHtml(e);
     document.getElementById("mSeverity").innerHTML = sevPill(e.severity);
 
     document.getElementById("mReason").innerHTML = reasonHtml(e);
+    document.getElementById("mMl").innerHTML = mlReasonListHtml(e);
 
     const rules = rulesTriggered(e);
     document.getElementById("mRules").innerHTML = `<ul>${rules.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ul>`;
@@ -863,6 +1320,7 @@
     */
 
     document.getElementById("mFields").innerHTML = `<ul>${anomalyDetailRows(e)}</ul>`;
+    document.getElementById("mTimeline").innerHTML = relatedTimelineHtml(e);
 
     document.getElementById("backdrop").style.display = "flex";
   }
@@ -890,20 +1348,25 @@
     try{
       const r = await fetch(buildQuery());
       const data = await r.json();
-      lastData = data;
+      rawData = Array.isArray(data) ? data : [];
+      lastData = applyClientFilters(rawData);
 
-      updateMetrics(data);
+      updateSourceHealth(rawData);
+      updateMetrics(lastData);
 
-      if(!data.length){
-        tbody.innerHTML = `<tr><td colspan="8" class="small">No events found.</td></tr>`;
+      if(!lastData.length){
+        tbody.innerHTML = `<tr><td colspan="8" class="small">No events found for the current filters.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = data.map(e => `
+      tbody.innerHTML = lastData.map(e => `
         <tr data-id="${e.id}">
           <td class="small">${(e.timestamp || "").replace("T"," ").slice(0,19)}</td>
           <td>${srcPill(e.source)}</td>
-          <td>${escapeHtml(e.event_type || "")}</td>
+          <td>
+            <div class="event-title">${escapeHtml(e.event_type || "-")}</div>
+            <div class="entity-line">${escapeHtml(modelProfileText(e))}</div>
+          </td>
           <td>${escapeHtml(e.actor || "—")}</td>
           <td class="small">${escapeHtml(e.ip || "—")}</td>
           <td>${escapeHtml(e.resource || "—")}</td>
@@ -938,14 +1401,23 @@
   document.getElementById("toggleBtn").addEventListener("click", () => {
     autoRefresh = !autoRefresh;
     document.getElementById("refreshState").textContent = autoRefresh ? "ON" : "OFF";
+    document.getElementById("refreshStateHeader").textContent = autoRefresh ? "ON" : "OFF";
     document.getElementById("toggleBtn").textContent = autoRefresh ? "Pause" : "Resume";
     if(autoRefresh) loadEvents();
   });
 
-  ["source","severity"].forEach(id => document.getElementById(id).addEventListener("change", loadEvents));
-  document.getElementById("search").addEventListener("input", () => {
+  ["source","severity","anomalyFilter","riskOnly"].forEach(id => document.getElementById(id).addEventListener("change", loadEvents));
+  ["search","eventTypeFilter","actorFilter","ipFilter"].forEach(id => document.getElementById(id).addEventListener("input", () => {
     clearTimeout(window.__t);
     window.__t = setTimeout(loadEvents, 300);
+  }));
+  document.getElementById("limit").addEventListener("change", loadEvents);
+  document.getElementById("clearFiltersBtn").addEventListener("click", () => {
+    ["source","severity","anomalyFilter","eventTypeFilter","actorFilter","ipFilter","search"].forEach(id => {
+      document.getElementById(id).value = "";
+    });
+    document.getElementById("riskOnly").checked = false;
+    loadEvents();
   });
 
   checkHealth();
