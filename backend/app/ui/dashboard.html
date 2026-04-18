@@ -848,6 +848,9 @@
       </div>
 
       <div id="crossAnalysis" class="analysis-panel">
+        <div class="panel small" style="margin-bottom:14px;">
+          Cross-layer correlations are derived from the currently loaded host, network, and cloud event context using selective multi-source heuristics. They indicate investigation leads, not confirmed incident chains.
+        </div>
         <div class="analysis-layout">
           <div class="section-card analysis-full"><h3>Correlated activity timeline</h3><div id="crossTimeline"></div></div>
           <div class="section-card"><h3>Repeated risky entities</h3><div id="crossEntities"></div></div>
@@ -1178,6 +1181,52 @@
     return rawField(raw, keys) || rawField(cloudTrailObject(e), keys);
   }
 
+  function titleCaseEventType(value){
+    return String(value || "Event")
+      .replace(/^win_event_(\d+)$/i, "Windows event $1")
+      .replace(/[_-]+/g, " ")
+      .replace(/\b\w/g, ch => ch.toUpperCase());
+  }
+
+  function conciseEventMeaning(e){
+    const et = String(e.event_type || "").toLowerCase();
+    const id = eventId(e);
+    const rules = ruleText(e);
+    const meanings = {
+      win_login_failed: "Failed login attempt",
+      win_login_success: "Successful login",
+      net_conn_high_risk: "High-risk network connection",
+      net_conn_allowed: "Allowed network connection",
+      net_conn_blocked: "Blocked network connection",
+      net_listener_open: "Listening port opened",
+      cloud_policy_change: "Cloud policy change",
+      cloud_key_management: "Cloud key management activity",
+      cloud_auth_failed: "Cloud authentication failure",
+      cloud_role_assumption: "Cloud role assumption",
+      cloud_resource_delete: "Cloud resource deletion",
+      cloud_network_change: "Cloud network change",
+      cloud_iam_change: "Cloud IAM change",
+      cloud_service_activity: "Cloud service activity"
+    };
+    const windowsMeanings = {
+      4624: "Successful login",
+      4625: "Failed login attempt",
+      4648: "Explicit-credential logon",
+      4672: "Privileged logon assigned",
+      4688: "Process creation detected",
+      4656: "Object access requested",
+      4663: "Object access recorded",
+      5156: "Allowed network connection"
+    };
+    if(rules.includes("host_successful_login_after_multiple_failures")) return "Successful login after repeated failures";
+    if(rules.includes("host_multiple_failed_login_attempts")) return "Multiple failed login attempts";
+    if(rules.includes("host_whoami_execution")) return "WHOAMI command execution detected";
+    if(rules.includes("host_usb_inserted")) return "USB/device insertion detected";
+    if(windowsMeanings[id]) return windowsMeanings[id];
+    if(meanings[et]) return meanings[et];
+    return titleCaseEventType(e.event_type);
+  }
+
   function emptyState(text){
     return `<div class="small">${escapeHtml(text)}</div>`;
   }
@@ -1204,9 +1253,18 @@
       <div class="bar-item">
         <div class="bar" style="height:${Math.max(8, Math.round((count / maxCount) * 105))}px"></div>
         <div class="bar-label">${count}</div>
-        <div class="bar-label">B${idx + 1}</div>
+        <div class="bar-label">${escapeHtml(formatBucketLabel(min + (span / 8) * idx, max))}</div>
       </div>
     `).join("")}</div>`;
+  }
+
+  function formatBucketLabel(bucketStart, maxTime){
+    const minutesFromLatest = Math.round((bucketStart - maxTime) / 60000);
+    if(Math.abs(minutesFromLatest) <= 180){
+      return minutesFromLatest >= -1 ? "now" : `${minutesFromLatest}m`;
+    }
+    const d = new Date(bucketStart);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
   }
 
   function compositionHtml(items){
@@ -1347,13 +1405,204 @@
     ]);
   }
 
+  function eventTime(e){
+    const t = new Date(e.timestamp || "").getTime();
+    return Number.isFinite(t) ? t : null;
+  }
+
+  function meaningfulEntity(value){
+    const text = String(value || "").trim();
+    if(!text) return null;
+    const low = text.toLowerCase();
+    if(["-", "unknown", "none", "null", "n/a"].includes(low)) return null;
+    return text;
+  }
+
+  function entityKeys(e){
+    return [meaningfulEntity(e.actor), meaningfulEntity(e.ip), meaningfulEntity(e.resource)].filter(Boolean);
+  }
+
+  function sharedEntity(a, b){
+    const bKeys = new Set(entityKeys(b).map(x => x.toLowerCase()));
+    return entityKeys(a).find(x => bKeys.has(x.toLowerCase())) || null;
+  }
+
+  function eventLine(e){
+    const ts = (e.timestamp || "").replace("T"," ").slice(0,19);
+    const risk = riskText(eventRisk(e));
+    return `${ts} - ${e.source || "unknown"} - ${e.event_type || "event"} - ${conciseEventMeaning(e)}${risk ? ` - risk ${risk}` : ""}`;
+  }
+
+  function correlationWindowLabel(items){
+    const times = items.map(eventTime).filter(v => v != null);
+    if(times.length < 2) return "single event";
+    const minutes = Math.max(1, Math.round((Math.max(...times) - Math.min(...times)) / 60000));
+    return `${minutes} min window`;
+  }
+
+  function isHostFailedOrAuthRisk(e){
+    const et = String(e.event_type || "").toLowerCase();
+    return (e.source || "").toLowerCase() === "host"
+      && (et === "win_login_failed"
+        || ruleText(e).includes("multiple_failed")
+        || ((e.anomaly_source_profile || "").toLowerCase() === "host_auth" && eventRisk(e) >= 7));
+  }
+
+  function isHostFollowup(e){
+    const et = String(e.event_type || "").toLowerCase();
+    const id = eventId(e);
+    return (e.source || "").toLowerCase() === "host"
+      && (et === "win_login_success"
+        || id === 4672
+        || ruleText(e).includes("successful_login_after")
+        || ((e.anomaly_source_profile || "").toLowerCase() === "host_behavior" && eventRisk(e) >= 7));
+  }
+
+  function isSuspiciousHostBehavior(e){
+    const id = eventId(e);
+    return (e.source || "").toLowerCase() === "host"
+      && ([4688, 4672, 4656, 4663].includes(id)
+        || ruleText(e).includes("whoami")
+        || ((e.anomaly_source_profile || "").toLowerCase() === "host_behavior" && eventRisk(e) >= 7));
+  }
+
+  function isRiskyNetwork(e){
+    return (e.source || "").toLowerCase() === "network"
+      && ((e.anomaly_label || "").toLowerCase() === "anomalous"
+        || eventRisk(e) >= 7
+        || (e.severity || "").toLowerCase() === "high"
+        || String(e.event_type || "").toLowerCase() === "net_conn_high_risk");
+  }
+
+  function isCloudIdentityRisk(e){
+    const et = String(e.event_type || "").toLowerCase();
+    return (e.source || "").toLowerCase() === "cloud"
+      && (["cloud_auth_failed", "cloud_role_assumption", "cloud_identity_activity"].includes(et)
+        || (et.includes("role") || et.includes("auth"))
+        || ((e.anomaly_label || "").toLowerCase() === "anomalous" && eventRisk(e) >= 6));
+  }
+
+  function isCloudAdminRisk(e){
+    const et = String(e.event_type || "").toLowerCase();
+    return (e.source || "").toLowerCase() === "cloud"
+      && (["cloud_policy_change", "cloud_key_management", "cloud_resource_delete", "cloud_network_change", "cloud_iam_change"].includes(et)
+        || ["delete", "put", "create", "attach", "detach", "revoke", "authorize"].some(word => String(simpleField(e, ["eventName", "EventName"]) || "").toLowerCase().startsWith(word)));
+  }
+
+  function addCorrelationOnce(list, seen, correlation){
+    const key = `${correlation.pattern}|${correlation.events.map(e => e.id).sort().join(",")}`;
+    if(seen.has(key)) return;
+    seen.add(key);
+    list.push(correlation);
+  }
+
+  function buildCrossLayerCorrelations(events){
+    const sorted = events
+      .filter(isSuspiciousEvent)
+      .filter(e => eventTime(e) != null)
+      .sort((a,b) => eventTime(a) - eventTime(b));
+    const correlations = [];
+    const seen = new Set();
+    const within = (a, b, minutes) => Math.abs(eventTime(b) - eventTime(a)) <= minutes * 60000;
+
+    sorted.forEach(a => {
+      sorted.forEach(b => {
+        if(a.id === b.id || eventTime(b) < eventTime(a)) return;
+        const shared = sharedEntity(a, b);
+
+        if(isHostFailedOrAuthRisk(a) && isHostFollowup(b) && within(a, b, 10) && shared){
+          addCorrelationOnce(correlations, seen, {
+            pattern: "Host credential misuse pattern",
+            explanation: `Host authentication risk followed by successful, privileged, or behavioral activity for the same ${shared}.`,
+            entity: shared,
+            events: [a, b]
+          });
+        }
+
+        if(isSuspiciousHostBehavior(a) && isRiskyNetwork(b) && within(a, b, 10) && (shared || within(a, b, 3))){
+          addCorrelationOnce(correlations, seen, {
+            pattern: "Host execution followed by suspicious network activity",
+            explanation: shared
+              ? `Suspicious host behavior was followed by risky network activity linked by ${shared}.`
+              : "Suspicious host behavior and risky network activity occurred within a very short window; linkage should be validated.",
+            entity: shared || "nearby time relation",
+            events: [a, b]
+          });
+        }
+
+        if(isCloudIdentityRisk(a) && isCloudAdminRisk(b) && within(a, b, 15) && (shared || a.actor && b.actor && a.actor === b.actor)){
+          addCorrelationOnce(correlations, seen, {
+            pattern: "Cloud identity/admin risk pattern",
+            explanation: `Cloud identity risk was followed by administrative or sensitive cloud activity${shared ? ` linked by ${shared}` : ""}.`,
+            entity: shared || a.actor || b.actor || "cloud identity context",
+            events: [a, b]
+          });
+        }
+      });
+    });
+
+    const byEntity = new Map();
+    sorted.forEach(e => entityKeys(e).forEach(entity => {
+      const key = entity.toLowerCase();
+      const row = byEntity.get(key) || { entity, events: [] };
+      row.events.push(e);
+      byEntity.set(key, row);
+    }));
+    byEntity.forEach(row => {
+      const sources = new Set(row.events.map(e => (e.source || "unknown").toLowerCase()));
+      const times = row.events.map(eventTime).filter(v => v != null);
+      if(sources.size >= 2 && Math.max(...times) - Math.min(...times) <= 15 * 60000){
+        addCorrelationOnce(correlations, seen, {
+          pattern: "Multi-source repeated risky entity",
+          explanation: `${row.entity} appears in suspicious or high-risk events across ${sources.size} sources within a short window.`,
+          entity: row.entity,
+          events: row.events.slice(0, 4)
+        });
+      }
+    });
+
+    for(let i = 0; i < sorted.length; i++){
+      const group = sorted.filter(e => Math.abs(eventTime(e) - eventTime(sorted[i])) <= 5 * 60000);
+      const sources = new Set(group.map(e => (e.source || "unknown").toLowerCase()));
+      if(group.length >= 3 && sources.size >= 2){
+        addCorrelationOnce(correlations, seen, {
+          pattern: "Risk convergence pattern",
+          explanation: "Multiple suspicious or high-risk events from different sources converged within a short window. This is a prioritization signal, not a confirmed chain.",
+          entity: "partial time-window linkage",
+          events: group.slice(0, 5)
+        });
+        break;
+      }
+    }
+
+    return correlations
+      .sort((a,b) => Math.max(...b.events.map(eventRisk)) - Math.max(...a.events.map(eventRisk)))
+      .slice(0, 6);
+  }
+
+  function correlationHtml(correlations){
+    if(!correlations.length) return emptyState("No grounded cross-layer correlations in the filtered data.");
+    return `<div class="finding-list">${correlations.map(c => {
+      const sources = [...new Set(c.events.map(e => e.source || "unknown"))].join(", ");
+      const maxRisk = Math.max(...c.events.map(eventRisk));
+      return `
+        <div class="finding-row">
+          <div class="finding-main">
+            <div>${escapeHtml(c.pattern)}</div>
+            <div class="small">Sources: ${escapeHtml(sources)} / Entity: ${escapeHtml(c.entity || "not available")} / ${escapeHtml(correlationWindowLabel(c.events))}</div>
+            <div class="small" style="margin-top:6px;">${escapeHtml(c.explanation)}</div>
+            <ul>${c.events.map(e => `<li>${escapeHtml(eventLine(e))}</li>`).join("")}</ul>
+          </div>
+          <div class="finding-score">${escapeHtml(riskText(maxRisk) || "")}</div>
+        </div>
+      `;
+    }).join("")}</div>`;
+  }
+
   function renderCrossAnalysis(events){
     const suspicious = events.filter(isSuspiciousEvent).sort((a,b) => new Date(b.timestamp || "") - new Date(a.timestamp || ""));
-    document.getElementById("crossTimeline").innerHTML = findingHtml(suspicious.slice(0, 10).map(e => ({
-      title: `${(e.timestamp || "").replace("T"," ").slice(0,19)} - ${e.source || "unknown"} - ${e.event_type || "event"}`,
-      detail: `${e.actor || e.ip || e.resource || "no entity"} / ${e.anomaly_label || "no ML label"}`,
-      badge: riskText(eventRisk(e)) || e.severity || ""
-    })), "No notable cross-layer timeline events in the filtered data.");
+    const correlations = buildCrossLayerCorrelations(events);
+    document.getElementById("crossTimeline").innerHTML = correlationHtml(correlations);
 
     document.getElementById("crossEntities").innerHTML = rankedHtml(groupRank(suspicious, e => e.actor || e.ip || e.resource), "No repeated risky entities found.");
 
@@ -1381,7 +1630,12 @@
     const repeatedHigh = groupRank(suspicious, e => e.actor || e.ip || e.resource)
       .filter(row => Number(row.score) >= 10)
       .map(row => ({ title: "Repeated suspicious entity", detail: row.label, badge: row.score }));
-    document.getElementById("crossThreatContext").innerHTML = findingHtml([...crossSourceEntities, ...repeatedHigh], "No cross-layer convergence patterns in the filtered data.");
+    const correlationFindings = correlations.map(c => ({
+      title: c.pattern,
+      detail: `${c.entity || "context"} / ${c.events.map(e => conciseEventMeaning(e)).join(" -> ")}`,
+      badge: correlationWindowLabel(c.events)
+    }));
+    document.getElementById("crossThreatContext").innerHTML = findingHtml([...correlationFindings, ...crossSourceEntities, ...repeatedHigh], "No cross-layer convergence patterns in the filtered data.");
   }
 
   function renderAnalysis(){
