@@ -17,6 +17,9 @@ HOST_IFOREST_PATH = MODELS_DIR / "host_isolation_forest.joblib"
 HOST_IFOREST_META_PATH = MODELS_DIR / "host_isolation_forest_meta.json"
 HOST_BEHAVIOR_IFOREST_PATH = MODELS_DIR / "host_behavior_iforest.joblib"
 HOST_BEHAVIOR_IFOREST_META_PATH = MODELS_DIR / "host_behavior_iforest_meta.json"
+CLOUD_AUTOENCODER_PATH = MODELS_DIR / "cloud_autoencoder.keras"
+CLOUD_AUTOENCODER_SCALER_PATH = MODELS_DIR / "cloud_autoencoder_scaler.joblib"
+CLOUD_AUTOENCODER_META_PATH = MODELS_DIR / "cloud_autoencoder_meta.json"
 _NETWORK_IFOREST_MODEL = None
 _NETWORK_IFOREST_LOAD_ATTEMPTED = False
 _NETWORK_IFOREST_META = None
@@ -38,6 +41,12 @@ _HOST_BEHAVIOR_IFOREST_MODEL = None
 _HOST_BEHAVIOR_IFOREST_LOAD_ATTEMPTED = False
 _HOST_BEHAVIOR_IFOREST_META = None
 _HOST_BEHAVIOR_IFOREST_META_LOAD_ATTEMPTED = False
+_CLOUD_AUTOENCODER_MODEL = None
+_CLOUD_AUTOENCODER_LOAD_ATTEMPTED = False
+_CLOUD_AUTOENCODER_SCALER = None
+_CLOUD_AUTOENCODER_SCALER_LOAD_ATTEMPTED = False
+_CLOUD_AUTOENCODER_META = None
+_CLOUD_AUTOENCODER_META_LOAD_ATTEMPTED = False
 
 
 def load_network_iforest():
@@ -250,6 +259,78 @@ def get_host_behavior_model():
     return {
         "model": load_host_behavior_iforest(),
         "meta": load_host_behavior_iforest_meta(),
+    }
+
+
+def load_cloud_autoencoder():
+    """Load and cache the trained cloud autoencoder model."""
+    global _CLOUD_AUTOENCODER_MODEL, _CLOUD_AUTOENCODER_LOAD_ATTEMPTED
+
+    if _CLOUD_AUTOENCODER_LOAD_ATTEMPTED:
+        return _CLOUD_AUTOENCODER_MODEL
+
+    _CLOUD_AUTOENCODER_LOAD_ATTEMPTED = True
+
+    if not CLOUD_AUTOENCODER_PATH.exists():
+        return None
+
+    try:
+        from tensorflow import keras
+        _CLOUD_AUTOENCODER_MODEL = keras.models.load_model(CLOUD_AUTOENCODER_PATH)
+    except Exception:
+        _CLOUD_AUTOENCODER_MODEL = None
+
+    return _CLOUD_AUTOENCODER_MODEL
+
+
+def load_cloud_autoencoder_scaler():
+    """Load and cache the trained cloud autoencoder scaler."""
+    global _CLOUD_AUTOENCODER_SCALER, _CLOUD_AUTOENCODER_SCALER_LOAD_ATTEMPTED
+
+    if _CLOUD_AUTOENCODER_SCALER_LOAD_ATTEMPTED:
+        return _CLOUD_AUTOENCODER_SCALER
+
+    _CLOUD_AUTOENCODER_SCALER_LOAD_ATTEMPTED = True
+
+    if not CLOUD_AUTOENCODER_SCALER_PATH.exists():
+        return None
+
+    try:
+        _CLOUD_AUTOENCODER_SCALER = joblib.load(CLOUD_AUTOENCODER_SCALER_PATH)
+    except Exception:
+        _CLOUD_AUTOENCODER_SCALER = None
+
+    return _CLOUD_AUTOENCODER_SCALER
+
+
+def load_cloud_autoencoder_meta():
+    """Load and cache the trained cloud autoencoder metadata."""
+    global _CLOUD_AUTOENCODER_META, _CLOUD_AUTOENCODER_META_LOAD_ATTEMPTED
+
+    if _CLOUD_AUTOENCODER_META_LOAD_ATTEMPTED:
+        return _CLOUD_AUTOENCODER_META
+
+    _CLOUD_AUTOENCODER_META_LOAD_ATTEMPTED = True
+
+    if not CLOUD_AUTOENCODER_META_PATH.exists():
+        return None
+
+    try:
+        with CLOUD_AUTOENCODER_META_PATH.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        _CLOUD_AUTOENCODER_META = data if isinstance(data, dict) else None
+    except Exception:
+        _CLOUD_AUTOENCODER_META = None
+
+    return _CLOUD_AUTOENCODER_META
+
+
+def get_cloud_autoencoder_model():
+    """Load and cache the cloud autoencoder model, scaler, and metadata."""
+    return {
+        "model": load_cloud_autoencoder(),
+        "scaler": load_cloud_autoencoder_scaler(),
+        "meta": load_cloud_autoencoder_meta(),
     }
 
 

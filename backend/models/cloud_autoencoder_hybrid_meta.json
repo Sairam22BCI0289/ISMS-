@@ -1,0 +1,19 @@
+{
+  "model_name": "autoencoder_cloud_hybrid_v1",
+  "source_profile": "cloud_hybrid",
+  "feature_dim": 18,
+  "local_total_cloud_rows": 939,
+  "local_usable_rows": 142,
+  "local_excluded_lookupevents_rows": 572,
+  "local_excluded_awsservice_assumerole_rows": 225,
+  "public_total_rows": 2900,
+  "public_usable_rows": 2900,
+  "combined_usable_rows": 3042,
+  "training_loss_final": 0.20426364243030548,
+  "validation_loss_final": 0.29770925641059875,
+  "reconstruction_error_mean": 0.22132973435461592,
+  "reconstruction_error_std": 0.2716681398901202,
+  "reconstruction_error_p90": 0.543726528919983,
+  "reconstruction_error_p95": 0.7511497082182932,
+  "reconstruction_error_p99": 1.1509657953678074
+}

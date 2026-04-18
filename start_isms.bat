@@ -18,7 +18,7 @@ echo ==========================================
 set SSLKEYLOGFILE=
 set ROOT=%~dp0
 set BACKEND=%ROOT%backend
-set VENV=%BACKEND%\.venv
+set VENV=%BACKEND%\.venv311
 set PYTHON=%VENV%\Scripts\python.exe
 
 if not exist "%PYTHON%" (

@@ -6,11 +6,13 @@ from datetime import datetime, timedelta, timezone
 
 from app.ml.features import (
     BEHAVIOR_EVENT_IDS,
+    extract_cloud_features,
     extract_host_behavior_features,
     extract_host_features,
     extract_network_features,
 )
 from app.ml.model_registry import (
+    get_cloud_autoencoder_model,
     get_host_auth_model,
     get_host_behavior_model,
     get_live_ocsvm_network_model,
@@ -276,6 +278,74 @@ def _score_to_risk_10(score: float, metadata: dict | None) -> float | None:
     return round(max(0.0, min(10.0, risk)), 1)
 
 
+def _cloud_autoencoder_risk_10(error: float, metadata: dict | None) -> float | None:
+    if not isinstance(metadata, dict):
+        return None
+
+    mean_error = _as_float(metadata.get("reconstruction_error_mean"))
+    p90 = _as_float(metadata.get("reconstruction_error_p90"))
+    p95 = _as_float(metadata.get("reconstruction_error_p95"))
+    p99 = _as_float(metadata.get("reconstruction_error_p99"))
+
+    if None in {mean_error, p90, p95, p99}:
+        return None
+
+    if error < mean_error:
+        return 2.0
+    if error < p90:
+        return 4.0
+    if error < p95:
+        return 6.0
+    if error < p99:
+        return 8.0
+    return 10.0
+
+
+def _cloudtrail_fields(event: dict) -> dict:
+    raw = _parse_raw(event.get("raw"))
+    cloudtrail = raw.get("CloudTrailEvent")
+    if isinstance(cloudtrail, str):
+        try:
+            parsed = json.loads(cloudtrail)
+            cloudtrail = parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            cloudtrail = {}
+    if not isinstance(cloudtrail, dict):
+        cloudtrail = {}
+
+    user_identity = cloudtrail.get("userIdentity")
+    if not isinstance(user_identity, dict):
+        user_identity = {}
+
+    return {
+        "event_name": str(raw.get("EventName") or cloudtrail.get("eventName") or "").strip(),
+        "event_source": str(raw.get("EventSource") or cloudtrail.get("eventSource") or "").strip(),
+        "identity_type": str(user_identity.get("type") or "").strip(),
+        "user_agent": str(cloudtrail.get("userAgent") or "").strip(),
+    }
+
+
+def _is_known_benign_cloud_noise(event: dict) -> bool:
+    fields = _cloudtrail_fields(event)
+    event_name = fields["event_name"].lower()
+    event_source = fields["event_source"].lower()
+    identity_type = fields["identity_type"].lower()
+    user_agent = fields["user_agent"].lower()
+
+    is_cloudtrail_polling = (
+        event_name == "lookupevents"
+        and event_source == "cloudtrail.amazonaws.com"
+        and identity_type == "iamuser"
+        and ("boto3" in user_agent or "botocore" in user_agent)
+    )
+    is_aws_service_assumerole = (
+        event_name == "assumerole"
+        and event_source == "sts.amazonaws.com"
+        and identity_type == "awsservice"
+    )
+    return is_cloudtrail_polling or is_aws_service_assumerole
+
+
 def _event_id_from_event(event: dict) -> int:
     raw = event.get("raw")
     if isinstance(raw, dict):
@@ -416,6 +486,63 @@ def _score_network_event(event: dict) -> dict:
     }
 
 
+def _score_cloud_event(event: dict) -> dict:
+    default = _default_result()
+
+    assets = get_cloud_autoencoder_model()
+    model = assets.get("model")
+    scaler = assets.get("scaler")
+    metadata = assets.get("meta")
+
+    if model is None or scaler is None or metadata is None:
+        return default
+
+    features = extract_cloud_features(event)
+    if not _valid_features(features):
+        return default
+
+    mean_error = _as_float(metadata.get("reconstruction_error_mean"))
+    std_error = _as_float(metadata.get("reconstruction_error_std"))
+    p90 = _as_float(metadata.get("reconstruction_error_p90"))
+    p95 = _as_float(metadata.get("reconstruction_error_p95"))
+    p99 = _as_float(metadata.get("reconstruction_error_p99"))
+    if None in {mean_error, std_error, p90, p95, p99}:
+        return default
+
+    features_scaled = scaler.transform([[float(value) for value in features]])
+    reconstructed = model.predict(features_scaled, verbose=0)
+    diff = features_scaled - reconstructed
+    reconstruction_error = float((diff ** 2).mean())
+    risk = _cloud_autoencoder_risk_10(reconstruction_error, metadata)
+    if risk is None:
+        return default
+
+    result = {
+        "anomaly_score": reconstruction_error,
+        "anomaly_risk_10": risk,
+        "anomaly_risk_10_svm": None,
+        "anomaly_label": "anomalous" if reconstruction_error >= p95 else "normal",
+        "anomaly_score_svm": None,
+        "anomaly_label_svm": None,
+        "anomaly_model": "autoencoder_cloud_v1",
+        "anomaly_source_profile": "cloud",
+        "host_auth_risk": None,
+        "host_behavior_risk": None,
+        "host_multilayer_risk": None,
+        "network_multilayer_risk": None,
+    }
+
+    if _is_known_benign_cloud_noise(event):
+        result.update({
+            "anomaly_risk_10": 2.0,
+            "anomaly_label": "normal",
+            "anomaly_model": "autoencoder_cloud_v1+noise_suppression",
+            "anomaly_source_profile": "cloud",
+        })
+
+    return result
+
+
 def score_event(event: dict) -> dict:
     """Score supported events with the trained anomaly models when available."""
     default = _default_result()
@@ -429,6 +556,8 @@ def score_event(event: dict) -> dict:
             return _score_network_event(event)
         if source == "host":
             return _score_host_event(event)
+        if source == "cloud":
+            return _score_cloud_event(event)
         return default
     except Exception:
         return default

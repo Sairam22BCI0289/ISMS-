@@ -720,10 +720,47 @@
     return lines;
   }
 
+  function cloudMlReasoning(e){
+    const raw = parseRaw(e.raw);
+    let cloudTrail = raw && typeof raw === "object" ? raw.CloudTrailEvent : null;
+    if(typeof cloudTrail === "string"){
+      try { cloudTrail = JSON.parse(cloudTrail); } catch { cloudTrail = {}; }
+    }
+    if(!cloudTrail || typeof cloudTrail !== "object") cloudTrail = {};
+
+    const eventName = rawField(raw, ["EventName", "eventName"]) || rawField(cloudTrail, ["eventName"]);
+    const eventSource = rawField(cloudTrail, ["eventSource"]);
+    const reconstructionError = numberValue(e.anomaly_score);
+    const cloudRisk = numberValue(e.anomaly_risk_10);
+    const label = e.anomaly_label || "not scored";
+    const model = e.anomaly_model || "autoencoder_cloud_v1";
+    const context = [];
+
+    if(eventName) context.push(`CloudTrail event: ${eventName}`);
+    if(eventSource) context.push(`service: ${eventSource}`);
+
+    const lines = [];
+    if(context.length) lines.push(`${context.join("; ")}.`);
+    lines.push(`Cloud model used: ${model}; label: ${label}.`);
+    lines.push(`Reconstruction error: ${reconstructionError == null ? "not available" : reconstructionError}.`);
+    lines.push(`Cloud anomaly risk: ${riskText(cloudRisk) || "not available"}.`);
+
+    if(String(label).toLowerCase() === "anomalous"){
+      lines.push("Interpretation: this event deviates from the learned cloud baseline.");
+    } else if(String(label).toLowerCase() === "normal"){
+      lines.push("Interpretation: this event matches the learned cloud baseline.");
+    } else {
+      lines.push("Interpretation: cloud autoencoder scoring was not available for this event.");
+    }
+
+    return lines;
+  }
+
   function mlReasoning(e){
     const src = String(e.source || "").toLowerCase();
     if(src === "host") return hostMlReasoning(e);
     if(src === "network") return networkMlReasoning(e);
+    if(src === "cloud") return cloudMlReasoning(e);
     return ["No ML reasoning is available for this source type."];
   }
 
@@ -746,6 +783,7 @@
     ];
 
     const isHost = (e.source || "").toLowerCase() === "host";
+    const isCloud = (e.source || "").toLowerCase() === "cloud";
     const profile = (e.anomaly_source_profile || "").toLowerCase();
 
     if(isHost){
@@ -767,6 +805,15 @@
         rows.push(detailRow("Anomaly label", e.anomaly_label || "-"));
       }
 
+      return rows.join("");
+    }
+
+    if(isCloud){
+      rows.push(detailRow("Anomaly label", e.anomaly_label || "-"));
+      rows.push(detailRow("Anomaly risk", riskText(e.anomaly_risk_10)));
+      rows.push(detailRow("Reconstruction error", e.anomaly_score));
+      rows.push(detailRow("Anomaly model", e.anomaly_model || "-"));
+      rows.push(detailRow("Anomaly source profile", e.anomaly_source_profile || "-"));
       return rows.join("");
     }
 

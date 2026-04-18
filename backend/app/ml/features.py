@@ -324,8 +324,82 @@ def extract_network_features(event: dict) -> list[float]:
 
 
 def extract_cloud_features(event: dict) -> list[float]:
-    """Return a minimal placeholder vector for cloud events."""
-    return [0.0]
+    """Extract fixed-order cloud features from normalized CloudTrail events."""
+    raw = _parse_raw(event)
+    cloudtrail = raw.get("CloudTrailEvent")
+    if isinstance(cloudtrail, str):
+        try:
+            parsed = json.loads(cloudtrail)
+            cloudtrail = parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            cloudtrail = {}
+    if not isinstance(cloudtrail, dict):
+        cloudtrail = {}
+
+    event_type = _safe_text(event.get("event_type"))
+    actor = _safe_text(event.get("actor")) or "unknown"
+    source_ip = _safe_text(event.get("ip")) or _safe_text(cloudtrail.get("sourceIPAddress"))
+    resource = _safe_text(event.get("resource"))
+    event_name = _safe_text(raw.get("EventName")) or _safe_text(cloudtrail.get("eventName"))
+    event_source = _safe_text(cloudtrail.get("eventSource"))
+    error_code = _safe_lower(cloudtrail.get("errorCode"))
+    user_agent = _safe_text(cloudtrail.get("userAgent"))
+    read_only = cloudtrail.get("readOnly")
+    user_identity = cloudtrail.get("userIdentity") if isinstance(cloudtrail.get("userIdentity"), dict) else {}
+    identity_type = _safe_text(user_identity.get("type"))
+    hour_of_day = float(_timestamp_hour(event))
+    identity_type_lower = identity_type.lower()
+
+    is_read_only = 1.0 if read_only is True or _safe_lower(read_only) == "true" else 0.0
+    read_like_action = 1.0 if is_read_only == 1.0 or event_name.startswith((
+        "Get",
+        "List",
+        "Describe",
+        "Lookup",
+        "Search",
+    )) else 0.0
+    write_like_action = 1.0 if event_name.startswith((
+        "Add",
+        "Attach",
+        "Authorize",
+        "Create",
+        "Detach",
+        "Disable",
+        "Enable",
+        "Modify",
+        "Put",
+        "Revoke",
+        "Set",
+        "Start",
+        "Stop",
+        "Update",
+    )) else 0.0
+    delete_like_action = 1.0 if event_name.startswith((
+        "Delete",
+        "Remove",
+        "Terminate",
+    )) else 0.0
+
+    return [
+        _stable_hash(event_type),
+        _stable_hash(event_name),
+        _stable_hash(event_source),
+        _stable_hash(actor),
+        _stable_hash(resource),
+        _stable_hash(user_agent),
+        hour_of_day,
+        1.0 if hour_of_day < 6 or hour_of_day > 22 else 0.0,
+        1.0 if _is_public_ip(source_ip) else 0.0,
+        1.0 if error_code else 0.0,
+        1.0 if identity_type_lower == "root" else 0.0,
+        1.0 if identity_type_lower == "iamuser" else 0.0,
+        1.0 if identity_type_lower == "assumedrole" else 0.0,
+        1.0 if identity_type_lower == "awsservice" else 0.0,
+        1.0 if event_name == "AssumeRole" else 0.0,
+        read_like_action,
+        write_like_action,
+        delete_like_action,
+    ]
 
 
 def extract_host_features(event: dict) -> list[float]:

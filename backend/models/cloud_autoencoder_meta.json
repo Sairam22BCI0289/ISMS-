@@ -1,0 +1,16 @@
+{
+  "model_name": "autoencoder_cloud_v1",
+  "source_profile": "cloud",
+  "feature_dim": 18,
+  "total_cloud_rows": 893,
+  "usable_training_rows": 135,
+  "excluded_lookupevents_rows": 546,
+  "excluded_awsservice_assumerole_rows": 212,
+  "training_loss_final": 0.1735573559999466,
+  "validation_loss_final": 0.24302051961421967,
+  "reconstruction_error_mean": 0.18408669410135844,
+  "reconstruction_error_std": 0.13464567762079138,
+  "reconstruction_error_p90": 0.38689638055754066,
+  "reconstruction_error_p95": 0.46973183109479044,
+  "reconstruction_error_p99": 0.5506542406298238
+}
