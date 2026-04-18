@@ -123,6 +123,128 @@
       color: var(--muted2);
     }
 
+    .view-tabs, .analysis-tabs{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .tab-btn{
+      background: #17263d;
+      border-color: var(--border2);
+      color: var(--muted2);
+    }
+
+    .tab-btn.active{
+      background: linear-gradient(180deg, #0ea5e9, #0369a1);
+      border-color: rgba(56,189,248,0.58);
+      color: #fff;
+    }
+
+    .view{ display:none; }
+    .view.active{ display:block; }
+    .analysis-panel{ display:none; }
+    .analysis-panel.active{ display:block; }
+
+    .analysis-layout{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .analysis-full{ grid-column: 1 / -1; }
+
+    .mini-bars{
+      display:flex;
+      align-items:end;
+      gap: 8px;
+      min-height: 120px;
+      padding-top: 10px;
+    }
+
+    .bar-item{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap: 6px;
+      min-width: 28px;
+    }
+
+    .bar{
+      width: 100%;
+      min-height: 6px;
+      border-radius: 8px 8px 3px 3px;
+      background: linear-gradient(180deg, #38bdf8, #0f766e);
+      border: 1px solid rgba(56,189,248,0.2);
+    }
+
+    .bar-label{
+      color: var(--muted);
+      font-size: 10px;
+      text-align:center;
+    }
+
+    .rank-list, .finding-list{
+      display:flex;
+      flex-direction:column;
+      gap: 8px;
+    }
+
+    .rank-row, .finding-row{
+      display:flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(7,17,31,0.45);
+    }
+
+    .rank-main, .finding-main{
+      min-width: 0;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
+
+    .rank-score, .finding-score{
+      color: #e0f2fe;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .composition-grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .composition-item{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(7,17,31,0.45);
+    }
+
+    .composition-item .label{
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .composition-item .value{
+      margin-top: 6px;
+      font-size: 22px;
+      font-weight: 820;
+    }
+
+    @media (max-width: 980px){
+      .analysis-layout{ grid-template-columns: 1fr; }
+      .analysis-full{ grid-column: auto; }
+    }
+
     .grid{
       display: grid;
       grid-template-columns: repeat(7, minmax(130px, 1fr));
@@ -530,6 +652,12 @@
   </header>
 
   <main>
+    <div class="view-tabs">
+      <button class="tab-btn active" id="consoleTab" data-view="console">Console</button>
+      <button class="tab-btn" id="analysisTab" data-view="analysis">Analysis</button>
+    </div>
+
+    <section id="consoleView" class="view active">
     <div class="section-title">
       <h2>Operations Summary</h2>
       <span class="small">Derived from currently loaded events only</span>
@@ -648,6 +776,86 @@
       </table>
       </div>
     </div>
+    </section>
+
+    <section id="analysisView" class="view">
+      <div class="section-title">
+        <h2>Analysis Workspace</h2>
+        <span class="small">Source-wise behavioral analysis, multilayer anomaly context, and cross-layer risk convergence from the currently loaded event data</span>
+      </div>
+
+      <div class="card" style="margin-bottom:14px;">
+        <div class="section-title">
+          <h2>Global Analysis Controls</h2>
+          <span class="small">These controls mirror the Console filters and recalculate all panels dynamically</span>
+        </div>
+        <div class="controls">
+          <select id="analysisSource">
+            <option value="">All sources</option>
+            <option value="host">Host</option>
+            <option value="network">Network</option>
+            <option value="cloud">Cloud</option>
+          </select>
+          <select id="analysisSeverity">
+            <option value="">All severities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select id="analysisAnomaly">
+            <option value="">Any anomaly label</option>
+            <option value="anomalous">Anomalous</option>
+            <option value="normal">Normal</option>
+            <option value="missing">Not scored</option>
+          </select>
+          <input id="analysisSearch" placeholder="Search current loaded events" />
+          <button id="analysisRefreshBtn">Refresh analysis</button>
+        </div>
+      </div>
+
+      <div class="analysis-tabs">
+        <button class="tab-btn active" data-analysis-tab="host">Host</button>
+        <button class="tab-btn" data-analysis-tab="network">Network</button>
+        <button class="tab-btn" data-analysis-tab="cloud">Cloud</button>
+        <button class="tab-btn" data-analysis-tab="cross">Cross-Layer</button>
+      </div>
+
+      <div id="hostAnalysis" class="analysis-panel active">
+        <div class="analysis-layout">
+          <div class="section-card"><h3>Host event trend</h3><div id="hostTrend"></div></div>
+          <div class="section-card"><h3>Top risky host actors/entities</h3><div id="hostTopEntities"></div></div>
+          <div class="section-card"><h3>Host anomaly composition</h3><div id="hostComposition"></div></div>
+          <div class="section-card"><h3>Host spotlight findings</h3><div id="hostSpotlight"></div></div>
+        </div>
+      </div>
+
+      <div id="networkAnalysis" class="analysis-panel">
+        <div class="analysis-layout">
+          <div class="section-card"><h3>Network activity trend</h3><div id="networkTrend"></div></div>
+          <div class="section-card"><h3>Top external IPs / ports / processes</h3><div id="networkTopEntities"></div></div>
+          <div class="section-card"><h3>Network multilayer analysis</h3><div id="networkComposition"></div></div>
+          <div class="section-card"><h3>Network spotlight findings</h3><div id="networkSpotlight"></div></div>
+        </div>
+      </div>
+
+      <div id="cloudAnalysis" class="analysis-panel">
+        <div class="analysis-layout">
+          <div class="section-card"><h3>Cloud activity trend</h3><div id="cloudTrend"></div></div>
+          <div class="section-card"><h3>Cloud category distribution</h3><div id="cloudCategories"></div></div>
+          <div class="section-card"><h3>Sensitive cloud action spotlight</h3><div id="cloudSpotlight"></div></div>
+          <div class="section-card"><h3>Cloud ML panel</h3><div id="cloudMlPanel"></div></div>
+        </div>
+      </div>
+
+      <div id="crossAnalysis" class="analysis-panel">
+        <div class="analysis-layout">
+          <div class="section-card analysis-full"><h3>Correlated activity timeline</h3><div id="crossTimeline"></div></div>
+          <div class="section-card"><h3>Repeated risky entities</h3><div id="crossEntities"></div></div>
+          <div class="section-card"><h3>Risk convergence panel</h3><div id="crossConvergence"></div></div>
+          <div class="section-card analysis-full"><h3>Emerging threat context</h3><div id="crossThreatContext"></div></div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Full analysis modal -->
@@ -925,6 +1133,263 @@
         <span class="status-dot ${cls}"></span>
       `;
     });
+  }
+
+  function sourceEvents(src){
+    return lastData.filter(e => (e.source || "").toLowerCase() === src);
+  }
+
+  function eventRisk(e){
+    return primaryRiskNumber(e) ?? 0;
+  }
+
+  function isSuspiciousEvent(e){
+    return (e.severity || "").toLowerCase() === "high"
+      || (e.anomaly_label || "").toLowerCase() === "anomalous"
+      || eventRisk(e) >= 7
+      || String(e.severity_reason || "").toLowerCase().includes("suspicious");
+  }
+
+  function ruleText(e){
+    const rules = Array.isArray(e.rules_triggered) ? e.rules_triggered.join(" ") : String(e.rules_triggered || "");
+    return `${rules} ${e.severity_reason || ""}`.toLowerCase();
+  }
+
+  function rawNested(raw, path){
+    let cur = raw;
+    for(const key of path){
+      if(!cur || typeof cur !== "object") return null;
+      cur = cur[key];
+    }
+    return cur;
+  }
+
+  function cloudTrailObject(e){
+    const raw = parseRaw(e.raw);
+    let ct = raw && raw.CloudTrailEvent;
+    if(typeof ct === "string"){
+      try { ct = JSON.parse(ct); } catch { ct = {}; }
+    }
+    return ct && typeof ct === "object" ? ct : {};
+  }
+
+  function simpleField(e, keys){
+    const raw = parseRaw(e.raw);
+    return rawField(raw, keys) || rawField(cloudTrailObject(e), keys);
+  }
+
+  function emptyState(text){
+    return `<div class="small">${escapeHtml(text)}</div>`;
+  }
+
+  function trendHtml(events){
+    if(!events.length) return emptyState("No events available for this filtered scope.");
+    const parsed = events
+      .map(e => new Date(e.timestamp || ""))
+      .filter(d => !Number.isNaN(d.getTime()))
+      .sort((a,b) => a - b);
+    if(!parsed.length) return emptyState("No valid timestamps available for trend analysis.");
+
+    const min = parsed[0].getTime();
+    const max = parsed[parsed.length - 1].getTime();
+    const buckets = Array.from({length: 8}, () => 0);
+    const span = Math.max(1, max - min);
+    parsed.forEach(d => {
+      const idx = Math.min(7, Math.floor(((d.getTime() - min) / span) * 8));
+      buckets[idx]++;
+    });
+    const maxCount = Math.max(...buckets, 1);
+
+    return `<div class="mini-bars">${buckets.map((count, idx) => `
+      <div class="bar-item">
+        <div class="bar" style="height:${Math.max(8, Math.round((count / maxCount) * 105))}px"></div>
+        <div class="bar-label">${count}</div>
+        <div class="bar-label">B${idx + 1}</div>
+      </div>
+    `).join("")}</div>`;
+  }
+
+  function compositionHtml(items){
+    return `<div class="composition-grid">${items.map(item => `
+      <div class="composition-item">
+        <div class="label">${escapeHtml(item.label)}</div>
+        <div class="value">${escapeHtml(item.value)}</div>
+      </div>
+    `).join("")}</div>`;
+  }
+
+  function rankedHtml(rows, emptyText){
+    if(!rows.length) return emptyState(emptyText);
+    return `<div class="rank-list">${rows.slice(0, 6).map(row => `
+      <div class="rank-row">
+        <div class="rank-main">
+          <div>${escapeHtml(row.label)}</div>
+          <div class="small">${escapeHtml(row.meta || "")}</div>
+        </div>
+        <div class="rank-score">${escapeHtml(row.score)}</div>
+      </div>
+    `).join("")}</div>`;
+  }
+
+  function groupRank(events, keyFn){
+    const groups = new Map();
+    events.forEach(e => {
+      const key = keyFn(e);
+      if(!key || key === "-") return;
+      const current = groups.get(key) || { label: key, count: 0, risk: 0, anomalies: 0 };
+      current.count += 1;
+      current.risk += eventRisk(e);
+      if((e.anomaly_label || "").toLowerCase() === "anomalous") current.anomalies += 1;
+      groups.set(key, current);
+    });
+    return [...groups.values()]
+      .map(g => ({
+        label: g.label,
+        meta: `${g.count} event(s), ${g.anomalies} anomalous`,
+        score: (g.risk + g.anomalies * 3).toFixed(1)
+      }))
+      .sort((a,b) => Number(b.score) - Number(a.score));
+  }
+
+  function findingHtml(rows, emptyText){
+    if(!rows.length) return emptyState(emptyText);
+    return `<div class="finding-list">${rows.slice(0, 7).map(row => `
+      <div class="finding-row">
+        <div class="finding-main">
+          <div>${escapeHtml(row.title)}</div>
+          <div class="small">${escapeHtml(row.detail || "")}</div>
+        </div>
+        <div class="finding-score">${escapeHtml(row.badge || "")}</div>
+      </div>
+    `).join("")}</div>`;
+  }
+
+  function hostFindings(events){
+    const rows = [];
+    events.forEach(e => {
+      const rules = ruleText(e);
+      const et = String(e.event_type || "").toLowerCase();
+      const id = eventId(e);
+      if(rules.includes("multiple_failed") || et === "win_login_failed") rows.push({ title: "Failed-login activity", detail: `${e.actor || "unknown actor"} / ${e.ip || "unknown IP"}`, badge: riskText(eventRisk(e)) || "" });
+      if(rules.includes("successful_login_after") || et === "win_login_success") rows.push({ title: "Login success context", detail: `${e.actor || "unknown actor"} / ${e.ip || "unknown IP"}`, badge: sevPill(e.severity).replace(/<[^>]*>/g, "") });
+      if(rules.includes("whoami") || eventSearchText(e).includes("whoami")) rows.push({ title: "Whoami command behavior", detail: `${e.actor || "unknown actor"} / ${e.resource || e.event_type}`, badge: "cmd" });
+      if(id === 4672 || et.includes("4672")) rows.push({ title: "Privileged host event", detail: `${e.actor || "unknown actor"} / ${e.event_type}`, badge: riskText(eventRisk(e)) || "" });
+      if(rules.includes("usb") || et.includes("usb")) rows.push({ title: "USB/device activity", detail: `${e.actor || "unknown actor"} / ${e.resource || "device event"}`, badge: "device" });
+    });
+    return rows;
+  }
+
+  function renderHostAnalysis(events){
+    const host = events.filter(e => (e.source || "").toLowerCase() === "host");
+    document.getElementById("hostTrend").innerHTML = trendHtml(host);
+    document.getElementById("hostTopEntities").innerHTML = rankedHtml(groupRank(host, e => e.actor || e.ip || e.resource), "No host entities found in the filtered data.");
+    document.getElementById("hostComposition").innerHTML = compositionHtml([
+      { label: "Auth anomalies", value: host.filter(e => (e.anomaly_source_profile || "").toLowerCase() === "host_auth" && (e.anomaly_label || "").toLowerCase() === "anomalous").length },
+      { label: "Behavior anomalies", value: host.filter(e => (e.anomaly_source_profile || "").toLowerCase() === "host_behavior" && (e.anomaly_label || "").toLowerCase() === "anomalous").length },
+      { label: "High multilayer risk", value: host.filter(e => numberValue(e.host_multilayer_risk) >= 7).length },
+      { label: "Rule suspicious", value: host.filter(e => ruleText(e).includes("host_") || (e.severity || "").toLowerCase() === "high").length }
+    ]);
+    document.getElementById("hostSpotlight").innerHTML = findingHtml(hostFindings(host), "No host spotlight findings in the filtered data.");
+  }
+
+  function networkFindings(events){
+    return events
+      .filter(e => eventRisk(e) >= 6 || (e.anomaly_label || "").toLowerCase() === "anomalous" || (e.severity || "").toLowerCase() === "high")
+      .sort((a,b) => eventRisk(b) - eventRisk(a))
+      .map(e => ({
+        title: e.event_type || "network event",
+        detail: `${e.ip || "unknown IP"} / port ${simpleField(e, ["dest_port", "remote_port", "destination_port", "local_port"]) || "unknown"} / ${simpleField(e, ["process_name", "process", "pid"]) || "unknown process"}`,
+        badge: riskText(eventRisk(e)) || ""
+      }));
+  }
+
+  function renderNetworkAnalysis(events){
+    const network = events.filter(e => (e.source || "").toLowerCase() === "network");
+    document.getElementById("networkTrend").innerHTML = trendHtml(network);
+    document.getElementById("networkTopEntities").innerHTML = rankedHtml(groupRank(network, e =>
+      e.ip || simpleField(e, ["remote_ip", "dest_ip", "destination_ip"]) || simpleField(e, ["dest_port", "remote_port"]) || simpleField(e, ["process_name", "process"])
+    ), "No network entities found in the filtered data.");
+    document.getElementById("networkComposition").innerHTML = compositionHtml([
+      { label: "IF anomalies", value: network.filter(e => (e.anomaly_label || "").toLowerCase() === "anomalous").length },
+      { label: "OCSVM anomalies", value: network.filter(e => (e.anomaly_label_svm || "").toLowerCase() === "anomalous").length },
+      { label: "High multilayer risk", value: network.filter(e => numberValue(e.network_multilayer_risk) >= 7).length },
+      { label: "Network events", value: network.length }
+    ]);
+    document.getElementById("networkSpotlight").innerHTML = findingHtml(networkFindings(network), "No high-risk network spotlight findings in the filtered data.");
+  }
+
+  function cloudFindings(events){
+    const riskyWords = ["policy", "iam", "network", "key", "delete", "auth", "failed", "role"];
+    return events
+      .filter(e => riskyWords.some(word => String(e.event_type || "").toLowerCase().includes(word))
+        || riskyWords.some(word => String(simpleField(e, ["eventName", "EventName"]) || "").toLowerCase().includes(word))
+        || (e.anomaly_label || "").toLowerCase() === "anomalous")
+      .sort((a,b) => eventRisk(b) - eventRisk(a))
+      .map(e => ({
+        title: simpleField(e, ["eventName", "EventName"]) || e.event_type || "cloud event",
+        detail: `${simpleField(e, ["eventSource", "EventSource"]) || "unknown service"} / ${e.actor || "unknown actor"}`,
+        badge: riskText(eventRisk(e)) || ""
+      }));
+  }
+
+  function renderCloudAnalysis(events){
+    const cloud = events.filter(e => (e.source || "").toLowerCase() === "cloud");
+    document.getElementById("cloudTrend").innerHTML = trendHtml(cloud);
+    document.getElementById("cloudCategories").innerHTML = rankedHtml(groupRank(cloud, e => e.event_type), "No cloud categories found in the filtered data.");
+    document.getElementById("cloudSpotlight").innerHTML = findingHtml(cloudFindings(cloud), "No sensitive cloud actions in the filtered data.");
+    const risks = cloud.map(eventRisk).filter(v => Number.isFinite(v));
+    const avgRisk = risks.length ? (risks.reduce((a,b) => a + b, 0) / risks.length).toFixed(1) : "-";
+    document.getElementById("cloudMlPanel").innerHTML = compositionHtml([
+      { label: "Cloud anomalies", value: cloud.filter(e => (e.anomaly_label || "").toLowerCase() === "anomalous").length },
+      { label: "Average cloud risk", value: avgRisk },
+      { label: "Autoencoder scored", value: cloud.filter(e => String(e.anomaly_model || "").includes("autoencoder_cloud")).length },
+      { label: "Cloud events", value: cloud.length }
+    ]);
+  }
+
+  function renderCrossAnalysis(events){
+    const suspicious = events.filter(isSuspiciousEvent).sort((a,b) => new Date(b.timestamp || "") - new Date(a.timestamp || ""));
+    document.getElementById("crossTimeline").innerHTML = findingHtml(suspicious.slice(0, 10).map(e => ({
+      title: `${(e.timestamp || "").replace("T"," ").slice(0,19)} - ${e.source || "unknown"} - ${e.event_type || "event"}`,
+      detail: `${e.actor || e.ip || e.resource || "no entity"} / ${e.anomaly_label || "no ML label"}`,
+      badge: riskText(eventRisk(e)) || e.severity || ""
+    })), "No notable cross-layer timeline events in the filtered data.");
+
+    document.getElementById("crossEntities").innerHTML = rankedHtml(groupRank(suspicious, e => e.actor || e.ip || e.resource), "No repeated risky entities found.");
+
+    const hostHigh = events.filter(e => numberValue(e.host_multilayer_risk) >= 7).length;
+    const netHigh = events.filter(e => numberValue(e.network_multilayer_risk) >= 7).length;
+    const cloudAnom = events.filter(e => (e.source || "").toLowerCase() === "cloud" && (e.anomaly_label || "").toLowerCase() === "anomalous").length;
+    document.getElementById("crossConvergence").innerHTML = compositionHtml([
+      { label: "Host high-risk", value: hostHigh },
+      { label: "Network high-risk", value: netHigh },
+      { label: "Cloud anomalous", value: cloudAnom },
+      { label: "Suspicious total", value: suspicious.length }
+    ]);
+
+    const sourceSetByEntity = new Map();
+    suspicious.forEach(e => {
+      [e.actor, e.ip, e.resource].filter(Boolean).forEach(key => {
+        const item = sourceSetByEntity.get(key) || new Set();
+        item.add((e.source || "unknown").toLowerCase());
+        sourceSetByEntity.set(key, item);
+      });
+    });
+    const crossSourceEntities = [...sourceSetByEntity.entries()]
+      .filter(([, sources]) => sources.size > 1)
+      .map(([entity, sources]) => ({ title: "Same entity across multiple sources", detail: `${entity} appeared in ${[...sources].join(", ")}`, badge: `${sources.size} layers` }));
+    const repeatedHigh = groupRank(suspicious, e => e.actor || e.ip || e.resource)
+      .filter(row => Number(row.score) >= 10)
+      .map(row => ({ title: "Repeated suspicious entity", detail: row.label, badge: row.score }));
+    document.getElementById("crossThreatContext").innerHTML = findingHtml([...crossSourceEntities, ...repeatedHigh], "No cross-layer convergence patterns in the filtered data.");
+  }
+
+  function renderAnalysis(){
+    syncAnalysisControlsFromConsole();
+    renderHostAnalysis(lastData);
+    renderNetworkAnalysis(lastData);
+    renderCloudAnalysis(lastData);
+    renderCrossAnalysis(lastData);
   }
 
   function renderSeverityDropdown(e){
@@ -1338,9 +1803,50 @@
       .replaceAll("'","&#039;");
   }
 
+  function setView(view){
+    document.getElementById("consoleView").classList.toggle("active", view === "console");
+    document.getElementById("analysisView").classList.toggle("active", view === "analysis");
+    document.querySelectorAll("[data-view]").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.view === view);
+    });
+    if(view === "analysis") renderAnalysis();
+  }
+
+  function setAnalysisTab(tab){
+    document.querySelectorAll("[data-analysis-tab]").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.analysisTab === tab);
+    });
+    document.getElementById("hostAnalysis").classList.toggle("active", tab === "host");
+    document.getElementById("networkAnalysis").classList.toggle("active", tab === "network");
+    document.getElementById("cloudAnalysis").classList.toggle("active", tab === "cloud");
+    document.getElementById("crossAnalysis").classList.toggle("active", tab === "cross");
+  }
+
+  function syncAnalysisControlsFromConsole(){
+    document.getElementById("analysisSource").value = document.getElementById("source").value;
+    document.getElementById("analysisSeverity").value = document.getElementById("severity").value;
+    document.getElementById("analysisAnomaly").value = document.getElementById("anomalyFilter").value;
+    document.getElementById("analysisSearch").value = document.getElementById("search").value;
+  }
+
+  function syncConsoleControlsFromAnalysis(){
+    document.getElementById("source").value = document.getElementById("analysisSource").value;
+    document.getElementById("severity").value = document.getElementById("analysisSeverity").value;
+    document.getElementById("anomalyFilter").value = document.getElementById("analysisAnomaly").value;
+    document.getElementById("search").value = document.getElementById("analysisSearch").value;
+  }
+
   document.getElementById("mClose").addEventListener("click", closeModal);
   document.getElementById("backdrop").addEventListener("click", (ev) => {
     if(ev.target.id === "backdrop") closeModal();
+  });
+
+  document.querySelectorAll("[data-view]").forEach(btn => {
+    btn.addEventListener("click", () => setView(btn.dataset.view));
+  });
+
+  document.querySelectorAll("[data-analysis-tab]").forEach(btn => {
+    btn.addEventListener("click", () => setAnalysisTab(btn.dataset.analysisTab));
   });
 
   async function loadEvents(){
@@ -1353,6 +1859,7 @@
 
       updateSourceHealth(rawData);
       updateMetrics(lastData);
+      renderAnalysis();
 
       if(!lastData.length){
         tbody.innerHTML = `<tr><td colspan="8" class="small">No events found for the current filters.</td></tr>`;
@@ -1417,6 +1924,23 @@
       document.getElementById(id).value = "";
     });
     document.getElementById("riskOnly").checked = false;
+    loadEvents();
+  });
+  ["analysisSource","analysisSeverity","analysisAnomaly"].forEach(id => {
+    document.getElementById(id).addEventListener("change", () => {
+      syncConsoleControlsFromAnalysis();
+      loadEvents();
+    });
+  });
+  document.getElementById("analysisSearch").addEventListener("input", () => {
+    clearTimeout(window.__analysisT);
+    window.__analysisT = setTimeout(() => {
+      syncConsoleControlsFromAnalysis();
+      loadEvents();
+    }, 300);
+  });
+  document.getElementById("analysisRefreshBtn").addEventListener("click", () => {
+    syncConsoleControlsFromAnalysis();
     loadEvents();
   });
 
