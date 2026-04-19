@@ -14,6 +14,28 @@ HOST_FAILED_LOGIN_WINDOW = timedelta(seconds=10)
 HOST_FAILED_LOGIN_THRESHOLD = 5
 USB_EVENT_IDS = {6416, 20001, 20003, 2100}
 SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3}
+NETWORK_RULES_BY_EVENT_TYPE = {
+    "net_conn_high_risk": (
+        "NET_CONN_HIGH_RISK",
+        "high",
+        "NET_CONN_HIGH_RISK: high-risk remote port detected",
+    ),
+    "net_listener_open": (
+        "NET_LISTENER_OPEN",
+        "medium",
+        "NET_LISTENER_OPEN: listening port detected",
+    ),
+    "net_conn_allowed": (
+        "NET_CONN_ALLOWED",
+        "low",
+        "NET_CONN_ALLOWED: allowed network connection observed",
+    ),
+    "net_conn_blocked": (
+        "NET_CONN_BLOCKED",
+        "low",
+        "NET_CONN_BLOCKED: blocked network connection observed",
+    ),
+}
 
 
 def _as_dict(raw: Any) -> dict:
@@ -185,10 +207,20 @@ def apply_rule_enrichment(
     rules_list: List[str],
 ) -> Tuple[Optional[str], Optional[str], List[str]]:
     src = (event.get("source") or "").lower().strip()
+    event_type = str(event.get("event_type") or "").strip()
+
+    if src == "network":
+        rule_info = NETWORK_RULES_BY_EVENT_TYPE.get(event_type)
+        if rule_info:
+            rule_name, minimum_severity, reason_text = rule_info
+            _append_rule(rules_list, rule_name)
+            severity = _severity_at_least(severity, minimum_severity)
+            reason = _append_reason(reason, reason_text)
+        return severity, reason, rules_list
+
     if src != "host":
         return severity, reason, rules_list
 
-    event_type = str(event.get("event_type") or "").strip()
     raw_obj = _as_dict(event.get("raw"))
     event_id = _host_event_id(event, raw_obj)
     ts = _event_timestamp(event.get("timestamp"))
