@@ -5,6 +5,7 @@ from typing import Optional, List, Tuple, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
+from app.alerts.emailer import maybe_send_event_alert
 from app.db.models import SecurityEvent
 from app.ml.anomaly_service import score_event
 
@@ -468,6 +469,7 @@ def create_event(db: Session, event: dict):
     db.add(obj)
     db.commit()
     db.refresh(obj)
+    maybe_send_event_alert(obj)
     return obj
 
 

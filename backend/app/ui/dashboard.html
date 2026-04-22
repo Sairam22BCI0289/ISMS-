@@ -931,6 +931,95 @@
   let timer = null;
   let rawData = [];
   let lastData = [];
+  const seenNotificationEventIds = new Set();
+  const notifiedEventIds = new Set();
+  let notificationBaselineReady = false;
+
+  function initBrowserNotifications(){
+    try{
+      if(!("Notification" in window)) return;
+      if(Notification.permission === "default"){
+        Notification.requestPermission().catch(() => {});
+      }
+    } catch {
+      // Notifications are optional; never block dashboard rendering.
+    }
+  }
+
+  function notificationEventId(evt){
+    const id = evt && evt.id;
+    if(id === null || id === undefined || id === "") return null;
+    return String(id);
+  }
+
+  function isNotificationAnomaly(evt){
+    return (evt.anomaly_label || "").toLowerCase() === "anomalous"
+      || (evt.anomaly_label_svm || "").toLowerCase() === "anomalous";
+  }
+
+  function shouldNotifyForEvent(evt){
+    const severity = (evt.severity || "").toLowerCase();
+    return severity === "high" || (severity === "medium" && isNotificationAnomaly(evt));
+  }
+
+  function compactNotificationText(value, maxLength=120){
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    if(text.length <= maxLength) return text;
+    return text.slice(0, maxLength - 3) + "...";
+  }
+
+  function showEventNotification(evt){
+    try{
+      if(!("Notification" in window) || Notification.permission !== "granted") return;
+      const bodyParts = [
+        `Source: ${evt.source || "unknown"}`,
+        `Event: ${evt.event_type || "unknown"}`,
+        `Severity: ${evt.severity || "unknown"}`
+      ];
+      if(evt.severity_reason){
+        bodyParts.push(`Reason: ${compactNotificationText(evt.severity_reason)}`);
+      }
+      const notification = new Notification("🚨 ISMS Alert", {
+        body: bodyParts.join("\n"),
+        tag: `isms-event-${notificationEventId(evt)}`,
+        requireInteraction: false
+      });
+      notification.onclick = () => {
+        try{
+          window.focus();
+          if(window.location.pathname !== "/dashboard"){
+            window.location.href = "/dashboard";
+          }
+        } finally {
+          notification.close();
+        }
+      };
+    } catch {
+      // Browser notifications are best-effort only.
+    }
+  }
+
+  function processEventNotifications(events){
+    if(!Array.isArray(events)) return;
+    if(!notificationBaselineReady){
+      events.forEach(evt => {
+        const id = notificationEventId(evt);
+        if(id) seenNotificationEventIds.add(id);
+      });
+      notificationBaselineReady = true;
+      return;
+    }
+
+    events.forEach(evt => {
+      const id = notificationEventId(evt);
+      if(!id) return;
+      const isNew = !seenNotificationEventIds.has(id);
+      seenNotificationEventIds.add(id);
+      if(!isNew || notifiedEventIds.has(id) || !shouldNotifyForEvent(evt)) return;
+      notifiedEventIds.add(id);
+      showEventNotification(evt);
+    });
+  }
 
   // Lightweight "playbook" actions for better demo (rule-based, not ML)
   function recommendedActions(evt){
@@ -2109,6 +2198,7 @@
       const r = await fetch(buildQuery());
       const data = await r.json();
       rawData = Array.isArray(data) ? data : [];
+      processEventNotifications(rawData);
       lastData = applyClientFilters(rawData);
 
       updateSourceHealth(rawData);
@@ -2199,6 +2289,7 @@
   });
 
   checkHealth();
+  initBrowserNotifications();
   loadEvents();
   startTimer();
 </script>
