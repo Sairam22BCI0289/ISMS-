@@ -742,7 +742,7 @@
         <input id="ipFilter" placeholder="IP" />
 
         <input id="search" placeholder="Search actor/event/resource…" size="28" />
-        <input id="limit" type="number" min="1" max="500" value="80" />
+        <input id="limit" type="number" min="1" max="500" value="500" />
 
         <div class="check-control">
           <input id="riskOnly" type="checkbox" />
@@ -1130,10 +1130,14 @@
   }
 
   function buildQuery(){
-    const limit = document.getElementById("limit").value || "80";
+    const limit = document.getElementById("limit").value || "500";
+    const source = document.getElementById("source").value.trim().toLowerCase();
+    const severity = document.getElementById("severity").value.trim().toLowerCase();
 
     const params = new URLSearchParams();
     params.set("limit", limit);
+    if(source) params.set("source", source);
+    if(severity) params.set("severity", severity);
     return "/events?" + params.toString();
   }
 
@@ -1813,14 +1817,9 @@
     return null;
   }
 
-  function eventMeaning(e){
-    const src = String(e.source || "").toLowerCase();
-    const et = String(e.event_type || "").toLowerCase();
-    const raw = parseRaw(e.raw);
-    const id = eventId(e);
+  function getHostEventMeaning(e, raw, id){
     const processName = rawField(raw, ["process_name", "ProcessName", "NewProcessName", "Image"]);
     const logonType = rawField(raw, ["logon_type", "LogonType"]);
-    const action = rawField(raw, ["action", "Action"]);
     const port = rawField(raw, ["dest_port", "destination_port", "DestinationPort", "remote_port", "RemotePort"]);
 
     const windowsMeanings = {
@@ -1842,15 +1841,170 @@
       return details.length ? `${windowsMeanings[id]} ${details.join("; ")}.` : windowsMeanings[id];
     }
 
-    if(src === "network"){
-      if(et === "net_conn_high_risk") return "This network event represents a connection involving a high-risk or administrative remote port.";
-      if(et === "net_listener_open") return "This network event means a local process is listening for inbound connections.";
-      if(et === "net_conn_allowed") return `This network event means a connection was allowed${action ? ` with action ${action}` : ""}.`;
-      if(et === "net_conn_blocked") return `This network event means a connection was blocked${action ? ` with action ${action}` : ""}.`;
+    return "This host event records Windows activity from the endpoint audit stream.";
+  }
+
+  function getNetworkEventMeaning(e, raw){
+    const et = String(e.event_type || "").toLowerCase();
+    const action = rawField(raw, ["action", "Action"]);
+    const port = rawField(raw, ["dest_port", "destination_port", "DestinationPort", "remote_port", "RemotePort", "local_port", "LocalPort"]);
+    const protocol = rawField(raw, ["protocol", "Protocol"]);
+    const direction = rawField(raw, ["direction", "Direction"]);
+    const ip = meaningfulEntity(e.ip)
+      || meaningfulEntity(rawField(raw, ["remote_ip", "RemoteAddress", "dest_ip", "destination_ip", "DestinationAddress"]));
+    const resource = meaningfulEntity(e.resource);
+    const details = [];
+
+    if(ip) details.push(`involving ${ip}`);
+    if(port) details.push(`on port ${port}`);
+    if(protocol) details.push(`over ${protocol}`);
+    if(direction) details.push(`direction ${direction}`);
+    if(!ip && resource) details.push(`associated with ${resource}`);
+    if(action && et !== "net_conn_allowed" && et !== "net_conn_blocked") details.push(`action ${action}`);
+
+    const detailText = details.length ? ` ${details.join(" ")}.` : "";
+    if(et === "net_conn_high_risk") return `This network event represents a potentially high-risk remote connection${detailText}`;
+    if(et === "net_listener_open") return `This network event represents listener activity on the monitored host${detailText}`;
+    if(et === "net_conn_allowed") return `This network event represents an allowed connection observed by the monitoring system${detailText || (action ? ` with action ${action}.` : ".")}`;
+    if(et === "net_conn_blocked") return `This network event represents a blocked connection attempt${detailText || (action ? ` with action ${action}.` : ".")}`;
+    return null;
+  }
+
+  function getCloudEventMeaning(e, raw){
+    const et = String(e.event_type || "").toLowerCase();
+    const actor = meaningfulEntity(e.actor);
+    const resource = meaningfulEntity(e.resource);
+    const cloudTrail = cloudTrailObject(e);
+    const ip = meaningfulEntity(e.ip)
+      || meaningfulEntity(rawField(raw, ["source_ip", "SourceIpAddress", "sourceIPAddress"]))
+      || meaningfulEntity(rawField(cloudTrail, ["sourceIPAddress"]));
+    const eventName = String(
+      rawField(raw, ["EventName", "eventName"])
+      || rawField(cloudTrail, ["eventName"])
+      || ""
+    ).trim();
+    const eventSource = String(
+      rawField(raw, ["EventSource", "eventSource"])
+      || rawField(cloudTrail, ["eventSource"])
+      || ""
+    ).trim();
+    const rawResources = rawField(raw, ["Resources", "resources"]) || rawField(cloudTrail, ["resources"]);
+
+    function cleanCloudDisplayValue(value){
+      const text = meaningfulEntity(value);
+      if(!text) return null;
+      if(text.length > 60) return null;
+      if(text.includes(",") || text.includes(";")) return null;
+      if(text.toLowerCase().startsWith("arn:")) return null;
+      return text;
     }
 
+    function cloudTarget(){
+      const direct = cleanCloudDisplayValue(resource);
+      if(direct) return direct;
+      if(Array.isArray(rawResources) && rawResources.length){
+        const first = rawResources[0];
+        if(first && typeof first === "object"){
+          return cleanCloudDisplayValue(
+            first.ResourceName
+            || first.resourceName
+            || first.ResourceType
+            || first.resourceType
+            || first.ARN
+            || first.arn
+          );
+        }
+        return cleanCloudDisplayValue(first);
+      }
+      return null;
+    }
+
+    function shortCloudContext(prefixActor="by", prefixResource="for"){
+      const shortActor = cleanCloudDisplayValue(actor);
+      const shortTarget = cloudTarget();
+      const shortService = cleanCloudDisplayValue(
+        eventSource === "cloudtrail.amazonaws.com" ? null : eventSource
+      );
+      if(shortActor) return ` ${prefixActor} ${shortActor}`;
+      if(shortTarget) return ` ${prefixResource} ${shortTarget}`;
+      if(shortService) return ` in ${shortService}`;
+      return "";
+    }
+
+    function cloudSentence(base){
+      const context = shortCloudContext("by", "for");
+      return context
+        ? `This cloud event means ${base}${context}.`
+        : `This cloud event means ${base} in the monitored cloud environment.`;
+    }
+
+    const exactCloudMeanings = {
+      CreateUser: "an IAM user was created",
+      DeleteUser: "an IAM user was deleted",
+      CreateRole: "an IAM role was created",
+      DeleteRole: "an IAM role was deleted",
+      AssumeRole: "a role was assumed",
+      AttachUserPolicy: "an IAM user policy was attached",
+      DetachUserPolicy: "an IAM user policy was detached",
+      PutUserPolicy: "an IAM user policy was updated",
+      DeleteUserPolicy: "an IAM user policy was deleted",
+      CreateAccessKey: "an access key was created",
+      DeleteAccessKey: "an access key was deleted",
+      ConsoleLogin: "a console login activity was recorded",
+      LookupEvents: "a CloudTrail audit lookup was performed",
+      RunInstances: "a compute instance was launched",
+      TerminateInstances: "a compute instance was terminated",
+      StartInstances: "a compute instance was started",
+      StopInstances: "a compute instance was stopped",
+      CreateBucket: "a storage bucket was created",
+      DeleteBucket: "a storage bucket was deleted",
+      PutBucketPolicy: "a storage bucket policy was changed",
+      AuthorizeSecurityGroupIngress: "a security group ingress rule was added",
+      RevokeSecurityGroupIngress: "a security group ingress rule was removed",
+      CreateKey: "a key was created",
+      ScheduleKeyDeletion: "a key deletion was scheduled"
+    };
+
+    if(eventName && exactCloudMeanings[eventName]){
+      const context = shortCloudContext("by", "for");
+      return `This cloud event means ${exactCloudMeanings[eventName]}${context}.`;
+    }
+
+    if(et === "cloud_service_activity") return cloudSentence("service-related activity");
+    if(et === "cloud_compute_activity") return cloudSentence("compute-related activity");
+    if(et === "cloud_policy_change") return cloudSentence("cloud policy change activity");
+    if(et === "cloud_network_change") return cloudSentence("cloud network configuration activity");
+    if(et === "cloud_key_management") return cloudSentence("key-management activity");
+    if(et === "cloud_auth_failed") return cloudSentence("cloud authentication failure activity");
+    if(et === "cloud_role_assumption") return cloudSentence("cloud role-assumption activity");
+    if(et === "cloud_resource_delete") return cloudSentence("resource deletion activity");
+    if(et === "cloud_identity_activity") return cloudSentence("identity-related activity");
+    if(et === "cloud_audit_activity") return cloudSentence("audit-related activity");
+    if(et === "cloud_storage_access") return cloudSentence("storage-access activity");
+    if(et === "cloud_resource_create") return cloudSentence("resource-creation activity");
+    if(et === "cloud_notification_activity") return cloudSentence("notification-related activity");
+    if(et === "cloud_iam_change") return cloudSentence("IAM-related change activity");
+    if(et === "cloud_auth_success") return cloudSentence("cloud authentication activity");
+    if(et === "cloud_other") return cloudSentence("cloud activity");
+    return null;
+  }
+
+  function getGenericEventMeaning(e){
+    const src = String(e.source || "").toLowerCase();
+    if(src === "network") return "This network event was observed by the monitoring system and evaluated by the available rule and ML logic.";
+    if(src === "cloud") return "This cloud event was observed in the monitored cloud environment and evaluated by the available rule and ML logic.";
     if(src === "host") return "This host event records Windows activity from the endpoint audit stream.";
     return "This event was ingested into ISMS and evaluated by the available rule and ML logic.";
+  }
+
+  function eventMeaning(e){
+    const src = String(e.source || "").toLowerCase();
+    const raw = parseRaw(e.raw);
+    const id = eventId(e);
+    if(src === "host") return getHostEventMeaning(e, raw, id);
+    if(src === "network") return getNetworkEventMeaning(e, raw) || getGenericEventMeaning(e);
+    if(src === "cloud") return getCloudEventMeaning(e, raw) || getGenericEventMeaning(e);
+    return getGenericEventMeaning(e);
   }
 
   function hostFusionWeights(e, authRisk, behaviorRisk){

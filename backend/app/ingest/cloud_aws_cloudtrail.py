@@ -125,6 +125,7 @@ IDENTITY_ACTIVITY_SOURCES = {
     "sso.amazonaws.com",
     "identitystore.amazonaws.com",
 }
+GLOBAL_CLOUDTRAIL_REGIONS = ("us-east-1",)
 
 
 def sanitize_sslkeylogfile() -> None:
@@ -169,6 +170,14 @@ def update_seen_event_ids(state: Dict[str, Any], seen_ids: Set[str], keep_last: 
     trimmed = list(sorted(seen_ids))[-keep_last:]
     state["seen_event_ids"] = trimmed
     return state
+
+
+def cloudtrail_lookup_regions() -> List[str]:
+    regions = [AWS_REGION]
+    for region in GLOBAL_CLOUDTRAIL_REGIONS:
+        if region not in regions:
+            regions.append(region)
+    return regions
 
 
 def safe_get(d: Dict[str, Any], *keys: str) -> Any:
@@ -503,16 +512,49 @@ def parse_cloudtrail_event(wrapper_event: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _event_time_key(wrapper_event: Dict[str, Any]) -> datetime:
+    value = wrapper_event.get("EventTime")
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except Exception:
+        return datetime.min.replace(tzinfo=timezone.utc)
+
+
 def fetch_recent_cloudtrail_events(minutes_back: int = 20, max_results: int = 50) -> List[Dict[str, Any]]:
     sanitize_sslkeylogfile()
-    client = boto3.client("cloudtrail", region_name=AWS_REGION)
     start_time = datetime.now(timezone.utc) - timedelta(minutes=minutes_back)
+    events_by_id: Dict[str, Dict[str, Any]] = {}
 
-    response = client.lookup_events(
-        StartTime=start_time,
-        MaxResults=max_results,
+    for region in cloudtrail_lookup_regions():
+        client = boto3.client("cloudtrail", region_name=region)
+        next_token: str | None = None
+
+        while True:
+            params = {
+                "StartTime": start_time,
+                "MaxResults": max_results,
+            }
+            if next_token:
+                params["NextToken"] = next_token
+
+            response = client.lookup_events(**params)
+            for wrapper_event in response.get("Events", []):
+                event_id = str(wrapper_event.get("EventId") or "").strip()
+                if not event_id:
+                    continue
+                events_by_id.setdefault(event_id, wrapper_event)
+
+            next_token = response.get("NextToken")
+            if not next_token:
+                break
+
+    return sorted(
+        events_by_id.values(),
+        key=_event_time_key,
+        reverse=True,
     )
-    return response.get("Events", [])
 
 
 def post_event_to_backend(event_payload: Dict[str, Any]) -> bool:
@@ -565,7 +607,7 @@ def run_once() -> None:
 
 def main() -> None:
     print("[INFO] ISMS CloudTrail agent started")
-    print(f"[INFO] Region: {AWS_REGION}")
+    print(f"[INFO] CloudTrail lookup regions: {', '.join(cloudtrail_lookup_regions())}")
     print(f"[INFO] Poll interval: {CLOUD_POLL_INTERVAL_SECONDS} seconds")
     print(f"[INFO] Backend API: {API_BASE_URL}")
 

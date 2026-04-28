@@ -15,6 +15,8 @@ HOST_FAILED_LOGIN_WINDOW = timedelta(seconds=10)
 HOST_FAILED_LOGIN_THRESHOLD = 5
 USB_EVENT_IDS = {6416, 20001, 20003, 2100}
 SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3}
+CLOUD_IAM_HIGH_SEVERITY_EVENTS = {"CreateUser", "DeleteUser"}
+CLOUD_IAM_MEDIUM_SEVERITY_EVENTS = {"CreateRole", "DeleteRole"}
 NETWORK_RULES_BY_EVENT_TYPE = {
     "net_conn_high_risk": (
         "NET_CONN_HIGH_RISK",
@@ -147,6 +149,22 @@ def _host_event_id(event: dict, raw_obj: dict) -> int:
     return 0
 
 
+def _cloudtrail_event_name(raw_obj: dict) -> str:
+    event_name = raw_obj.get("EventName") or raw_obj.get("eventName")
+    if event_name:
+        return str(event_name).strip()
+
+    cloudtrail_obj = raw_obj.get("CloudTrailEvent")
+    if isinstance(cloudtrail_obj, str):
+        cloudtrail_obj = _as_dict(cloudtrail_obj)
+    if isinstance(cloudtrail_obj, dict):
+        event_name = cloudtrail_obj.get("eventName") or cloudtrail_obj.get("EventName")
+        if event_name:
+            return str(event_name).strip()
+
+    return ""
+
+
 def _recent_failed_login_count(db: Session, event: dict, ts: datetime) -> int:
     actor = event.get("actor")
     ip = event.get("ip")
@@ -272,6 +290,13 @@ def infer_severity_and_reason(event: dict) -> Tuple[str, str]:
     raw_obj = _as_dict(event.get("raw"))
 
     if src == "cloud":
+        if et == "cloud_iam_change":
+            event_name = _cloudtrail_event_name(raw_obj)
+            if event_name in CLOUD_IAM_HIGH_SEVERITY_EVENTS:
+                return "high", f"CLOUD_RULE: {event_name} -> high"
+            if event_name in CLOUD_IAM_MEDIUM_SEVERITY_EVENTS:
+                return "medium", f"CLOUD_RULE: {event_name} -> medium"
+
         if et in {
             "cloud_policy_change",
             "cloud_key_management",
